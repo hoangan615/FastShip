@@ -36,6 +36,16 @@ FastShip/
 - **Mobile**: Expo Router, one app, role-scoped route groups (`(customer)`, `(merchant)`,
   `(shipper)`, `(ops)`) selected after login, Zustand for auth/tracking/cart state, React Query
   for server state, `socket.io-client` for realtime updates.
+- **Ratings**: `backend/app/modules/ratings/` — customer rates the shipper once an order is
+  `completed` (one rating per order); the shipper's `rating` column is recomputed as the average
+  across all their ratings. Mobile UI lives inline on the order detail screen.
+- **SLA**: `orders.sla_deadline` is set at order creation (`created_at + sla_minutes`, default
+  60 min) so the ops "SLA-breached" complaint detection has something real to compare against.
+- **Merchant revenue**: `GET /orders/merchant/revenue` reports total/completed orders, revenue
+  from completed orders, and pending vs. released escrow payout, scoped to the calling merchant.
+  Surfaced on a dedicated `(merchant)/revenue` tab.
+- **Ops heatmap**: `GET /ops/heatmap` (grid-bucketed shipper density from the Redis geo index) is
+  now also rendered on mobile at `(ops)/heatmap`.
 
 ## Backend setup
 
@@ -109,6 +119,7 @@ registration determines which navigation stack (`(customer)`, `(merchant)`, `(sh
 | `merchant_response_window_seconds` | 300 | Auto-reject window if merchant doesn't respond |
 | `match_lock_ttl_seconds` | 30 | TTL on the per-shipper matching lock |
 | `shipper_offline_after_seconds` | 30 | Heartbeat staleness threshold before auto-offline |
+| `sla_minutes` | 60 | Delivery SLA window from order creation, feeds ops SLA-breach detection |
 
 ## Verified end-to-end
 

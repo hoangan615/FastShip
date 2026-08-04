@@ -1,5 +1,6 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams } from "expo-router";
+import { useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import * as api from "@/api/endpoints";
@@ -58,6 +59,8 @@ export default function OrderDetailScreen() {
         </View>
       )}
 
+      {role === "customer" && status === "completed" && <RatingSection orderId={order.id} />}
+
       {role === "customer" && status === "pending_confirmation" && (
         <Pressable
           style={styles.dangerButton}
@@ -103,6 +106,63 @@ export default function OrderDetailScreen() {
   );
 }
 
+function RatingSection({ orderId }: { orderId: string }) {
+  const queryClient = useQueryClient();
+  const [score, setScore] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+
+  const { data: existingRating, isLoading } = useQuery({
+    queryKey: ["orders", orderId, "rating"],
+    queryFn: () => api.getOrderRating(orderId),
+  });
+
+  async function submit() {
+    if (score < 1) return;
+    setSubmitting(true);
+    try {
+      await api.rateOrder(orderId, score);
+      queryClient.invalidateQueries({ queryKey: ["orders", orderId, "rating"] });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (isLoading) return null;
+
+  if (existingRating) {
+    return (
+      <View style={styles.section}>
+        <Text style={styles.label}>Your rating</Text>
+        <Text style={styles.stars}>{"★".repeat(existingRating.score)}</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.section}>
+      <Text style={styles.label}>Rate your delivery</Text>
+      <View style={styles.starRow}>
+        {[1, 2, 3, 4, 5].map((n) => (
+          <Pressable key={n} onPress={() => setScore(n)}>
+            <Text style={[styles.star, n <= score && styles.starFilled]}>{"★"}</Text>
+          </Pressable>
+        ))}
+      </View>
+      <Pressable
+        style={[styles.primaryButton, score < 1 && styles.buttonDisabled]}
+        onPress={submit}
+        disabled={submitting || score < 1}
+      >
+        {submitting ? (
+          <ActivityIndicator color="white" />
+        ) : (
+          <Text style={styles.buttonText}>Submit rating</Text>
+        )}
+      </Pressable>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { padding: 16, gap: 12 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
@@ -124,4 +184,9 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   buttonText: { color: "white", fontWeight: "700" },
+  buttonDisabled: { opacity: 0.5 },
+  stars: { fontSize: 22, color: "#f59e0b" },
+  starRow: { flexDirection: "row", gap: 4 },
+  star: { fontSize: 32, color: "#cbd5e1" },
+  starFilled: { color: "#f59e0b" },
 });

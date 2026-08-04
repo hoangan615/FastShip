@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     merchant_response_window_seconds: int = 300
     match_lock_ttl_seconds: int = 30
     shipper_offline_after_seconds: int = 30
+    sla_minutes: int = 60
 
     celery_broker_url: str = "redis://localhost:6379/1"
     celery_result_backend: str = "redis://localhost:6379/2"

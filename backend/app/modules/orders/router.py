@@ -12,9 +12,19 @@ from app.db.session import get_db
 from app.modules.auth.models import User
 from app.modules.auth.service import get_customer_for_user
 from app.modules.catalog.service import get_merchant_for_user
+from app.core.exceptions import NotFoundError
 from app.modules.orders import service
 from app.modules.orders.models import Order
-from app.modules.orders.schemas import FailRequest, OrderCreate, OrderEventOut, OrderOut, RejectRequest
+from app.modules.orders.schemas import (
+    FailRequest,
+    MerchantRevenueReport,
+    OrderCreate,
+    OrderEventOut,
+    OrderOut,
+    RejectRequest,
+)
+from app.modules.ratings import service as ratings_service
+from app.modules.ratings.schemas import RatingCreate, RatingOut
 from app.modules.shippers.service import get_shipper_for_user
 
 router = APIRouter(prefix="/orders", tags=["orders"])
@@ -74,6 +84,15 @@ async def list_my_shipper_orders(
         select(Order).where(Order.shipper_id == shipper.id).order_by(Order.created_at.desc())
     )
     return list(result.all())
+
+
+@router.get("/merchant/revenue", response_model=MerchantRevenueReport)
+async def get_merchant_revenue(
+    user: User = Depends(require_role(UserRole.merchant)),
+    db: AsyncSession = Depends(get_db),
+):
+    merchant = await get_merchant_for_user(db, user.id)
+    return await service.get_merchant_revenue(db, merchant.id)
 
 
 @router.post("/{order_id}/confirm", response_model=OrderOut)
@@ -147,3 +166,22 @@ async def fail_order(
 ):
     shipper = await get_shipper_for_user(db, user.id)
     return await service.fail_order(db, shipper.id, order_id, payload.reason)
+
+
+@router.post("/{order_id}/rating", response_model=RatingOut)
+async def rate_order(
+    order_id: uuid.UUID,
+    payload: RatingCreate,
+    user: User = Depends(require_role(UserRole.customer)),
+    db: AsyncSession = Depends(get_db),
+):
+    customer = await get_customer_for_user(db, user.id)
+    return await ratings_service.create_rating(db, customer.id, order_id, payload)
+
+
+@router.get("/{order_id}/rating", response_model=RatingOut)
+async def get_order_rating(order_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    rating = await ratings_service.get_rating_for_order(db, order_id)
+    if rating is None:
+        raise NotFoundError("This order has not been rated yet")
+    return rating

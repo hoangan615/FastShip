@@ -56,6 +56,7 @@ export interface Order {
   dropoff_addr: Address;
   subtotal: string;
   cod_amount: string | null;
+  sla_deadline: string | null;
   created_at: string;
   assigned_at: string | null;
   confirmed_at: string | null;
@@ -82,6 +83,29 @@ export interface LiveOrder {
   shipper_id: string | null;
   created_at: string;
   sla_deadline: string | null;
+}
+
+export interface Rating {
+  id: string;
+  order_id: string;
+  shipper_id: string;
+  score: number;
+  comment: string | null;
+  created_at: string;
+}
+
+export interface MerchantRevenueReport {
+  total_orders: number;
+  completed_orders: number;
+  total_revenue: string;
+  pending_payout: string;
+  released_payout: string;
+}
+
+export interface HeatmapCell {
+  lat_bucket: number;
+  lng_bucket: number;
+  shipper_count: number;
 }
 
 export interface SummaryReport {

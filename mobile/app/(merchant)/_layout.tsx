@@ -7,6 +7,7 @@ export default function MerchantLayout() {
     <Tabs screenOptions={{ headerShown: true, headerRight: () => <LogoutButton /> }}>
       <Tabs.Screen name="incoming-orders" options={{ title: "Orders" }} />
       <Tabs.Screen name="products" options={{ title: "Products" }} />
+      <Tabs.Screen name="revenue" options={{ title: "Revenue" }} />
     </Tabs>
   );
 }

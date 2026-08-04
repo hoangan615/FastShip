@@ -6,6 +6,7 @@ export default function OpsLayout() {
   return (
     <Tabs screenOptions={{ headerShown: true, headerRight: () => <LogoutButton /> }}>
       <Tabs.Screen name="dashboard" options={{ title: "Dashboard" }} />
+      <Tabs.Screen name="heatmap" options={{ title: "Heatmap" }} />
       <Tabs.Screen name="complaints" options={{ title: "Complaints" }} />
     </Tabs>
   );

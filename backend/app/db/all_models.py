@@ -10,4 +10,5 @@ from app.modules.catalog.models import Merchant, Product  # noqa: F401
 from app.modules.matching.models import MatchOffer  # noqa: F401
 from app.modules.orders.models import Order, OrderEvent, OrderItem  # noqa: F401
 from app.modules.payments.models import Payment  # noqa: F401
+from app.modules.ratings.models import Rating  # noqa: F401
 from app.modules.shippers.models import Shipper  # noqa: F401

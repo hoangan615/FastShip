@@ -49,6 +49,7 @@ class OrderOut(BaseModel):
     dropoff_addr: dict
     subtotal: Decimal
     cod_amount: Decimal | None
+    sla_deadline: datetime | None
     created_at: datetime
     assigned_at: datetime | None
     confirmed_at: datetime | None
@@ -74,3 +75,11 @@ class RejectRequest(BaseModel):
 
 class FailRequest(BaseModel):
     reason: str | None = None
+
+
+class MerchantRevenueReport(BaseModel):
+    total_orders: int
+    completed_orders: int
+    total_revenue: Decimal
+    pending_payout: Decimal
+    released_payout: Decimal

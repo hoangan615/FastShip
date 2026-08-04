@@ -1,10 +1,13 @@
 import { apiClient } from "@/api/client";
 import type {
   Address,
+  HeatmapCell,
   LiveOrder,
   Merchant,
+  MerchantRevenueReport,
   Order,
   Product,
+  Rating,
   ShipperProfile,
   SummaryReport,
   TokenResponse,
@@ -132,6 +135,30 @@ export async function failOrder(orderId: string, reason?: string): Promise<Order
   return data;
 }
 
+export async function rateOrder(
+  orderId: string,
+  score: number,
+  comment?: string
+): Promise<Rating> {
+  const { data } = await apiClient.post(`/orders/${orderId}/rating`, { score, comment });
+  return data;
+}
+
+export async function getOrderRating(orderId: string): Promise<Rating | null> {
+  try {
+    const { data } = await apiClient.get(`/orders/${orderId}/rating`);
+    return data;
+  } catch (e: any) {
+    if (e?.response?.status === 404) return null;
+    throw e;
+  }
+}
+
+export async function getMerchantRevenue(): Promise<MerchantRevenueReport> {
+  const { data } = await apiClient.get("/orders/merchant/revenue");
+  return data;
+}
+
 // --- shippers ----------------------------------------------------------------
 
 export async function getMyShipperProfile(): Promise<ShipperProfile> {
@@ -173,5 +200,10 @@ export async function opsSummary(): Promise<SummaryReport> {
 
 export async function opsComplaints(): Promise<unknown[]> {
   const { data } = await apiClient.get("/ops/complaints");
+  return data;
+}
+
+export async function opsHeatmap(): Promise<HeatmapCell[]> {
+  const { data } = await apiClient.get("/ops/heatmap");
   return data;
 }

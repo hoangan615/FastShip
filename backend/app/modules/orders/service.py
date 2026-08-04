@@ -1,12 +1,14 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+
+from decimal import Decimal
 
 from redis.asyncio import Redis
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.core.enums import OrderEventType, OrderSource, OrderStatus, ShipperStatus
+from app.core.enums import OrderEventType, OrderSource, OrderStatus, PaymentStatus, ShipperStatus
 from app.core.exceptions import NotFoundError, PermissionDeniedError
 from app.modules.catalog import service as catalog_service
 from app.modules.matching import engine as matching_engine
@@ -14,6 +16,7 @@ from app.modules.orders.models import Order, OrderEvent, OrderItem
 from app.modules.orders.schemas import OrderCreate
 from app.modules.orders.state_machine import OrderTransitionEvent, apply_transition
 from app.modules.payments import service as payments_service
+from app.modules.payments.models import Payment
 from app.modules.shippers.models import Shipper
 from app.modules.tracking.ws_manager import broadcast_order_status
 
@@ -56,6 +59,7 @@ async def create_order(db: AsyncSession, customer_id: uuid.UUID, payload: OrderC
         dropoff_addr=payload.dropoff_addr.model_dump(),
         subtotal=subtotal,
         cod_amount=payload.cod_amount,
+        sla_deadline=now + timedelta(minutes=settings.sla_minutes),
     )
     db.add(order)
     await db.flush()
@@ -203,6 +207,57 @@ async def complete_order(db: AsyncSession, shipper_id: uuid.UUID, order_id: uuid
     await db.commit()
     await broadcast_order_status(order)
     return order
+
+
+async def get_merchant_revenue(db: AsyncSession, merchant_id: uuid.UUID) -> dict:
+    total_orders = (
+        await db.scalar(
+            select(func.count()).select_from(Order).where(Order.merchant_id == merchant_id)
+        )
+        or 0
+    )
+    completed_orders = (
+        await db.scalar(
+            select(func.count())
+            .select_from(Order)
+            .where(Order.merchant_id == merchant_id, Order.status == OrderStatus.completed)
+        )
+        or 0
+    )
+    total_revenue = (
+        await db.scalar(
+            select(func.coalesce(func.sum(Order.subtotal), 0)).where(
+                Order.merchant_id == merchant_id, Order.status == OrderStatus.completed
+            )
+        )
+        or Decimal(0)
+    )
+    pending_payout = (
+        await db.scalar(
+            select(func.coalesce(func.sum(Payment.amount), 0))
+            .join(Order, Order.id == Payment.order_id)
+            .where(Order.merchant_id == merchant_id, Payment.status == PaymentStatus.held)
+        )
+        or Decimal(0)
+    )
+    released_payout = (
+        await db.scalar(
+            select(func.coalesce(func.sum(Payment.amount), 0))
+            .join(Order, Order.id == Payment.order_id)
+            .where(
+                Order.merchant_id == merchant_id,
+                Payment.status == PaymentStatus.released_to_merchant,
+            )
+        )
+        or Decimal(0)
+    )
+    return {
+        "total_orders": total_orders,
+        "completed_orders": completed_orders,
+        "total_revenue": total_revenue,
+        "pending_payout": pending_payout,
+        "released_payout": released_payout,
+    }
 
 
 async def fail_order(
