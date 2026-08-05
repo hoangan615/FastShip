@@ -12,6 +12,7 @@ from app.core.enums import OrderEventType, OrderSource, OrderStatus, PaymentStat
 from app.core.exceptions import NotFoundError, PermissionDeniedError
 from app.modules.catalog import service as catalog_service
 from app.modules.matching import engine as matching_engine
+from app.modules.notifications.service import send_notification
 from app.modules.orders.models import Order, OrderEvent, OrderItem
 from app.modules.orders.schemas import OrderCreate
 from app.modules.orders.state_machine import OrderTransitionEvent, apply_transition
@@ -83,6 +84,8 @@ async def create_order(db: AsyncSession, customer_id: uuid.UUID, payload: OrderC
     await db.commit()
     await db.refresh(order)
 
+    send_notification(payload.merchant_id, "New order received", f"Order #{order.id} awaits your confirmation")
+
     from app.workers.tasks_orders import auto_reject_timeout
 
     auto_reject_timeout.apply_async(
@@ -105,6 +108,7 @@ async def confirm_order(db: AsyncSession, redis: Redis, merchant_id: uuid.UUID, 
 
     await db.commit()
     await broadcast_order_status(order)
+    send_notification(order.customer_id, "Order confirmed", f"Order #{order.id} was accepted by the merchant")
 
     await matching_engine.find_and_offer(db, redis, order.id)
     return order
@@ -124,6 +128,7 @@ async def reject_order(
     await payments_service.refund(db, order.id)
     await db.commit()
     await broadcast_order_status(order)
+    send_notification(order.customer_id, "Order rejected", f"Order #{order.id} was rejected; your payment was refunded")
     return order
 
 
@@ -139,6 +144,7 @@ async def auto_reject_timeout(db: AsyncSession, order_id: uuid.UUID) -> None:
     await payments_service.refund(db, order.id)
     await db.commit()
     await broadcast_order_status(order)
+    send_notification(order.customer_id, "Order timed out", f"Order #{order.id} timed out and was refunded")
 
 
 async def cancel_order(db: AsyncSession, customer_id: uuid.UUID, order_id: uuid.UUID) -> Order:
@@ -151,6 +157,7 @@ async def cancel_order(db: AsyncSession, customer_id: uuid.UUID, order_id: uuid.
     await payments_service.refund(db, order.id)
     await db.commit()
     await broadcast_order_status(order)
+    send_notification(order.merchant_id, "Order cancelled", f"Order #{order.id} was cancelled by the customer")
     return order
 
 
@@ -180,6 +187,42 @@ async def mark_picked_up(db: AsyncSession, shipper_id: uuid.UUID, order_id: uuid
     return order
 
 
+async def reject_assignment(
+    db: AsyncSession,
+    redis: Redis,
+    shipper_id: uuid.UUID,
+    order_id: uuid.UUID,
+    reason: str | None,
+) -> Order:
+    """A shipper backs out after having already accepted an offer (but
+    before pickup). Frees the shipper, excludes them from re-matching for
+    this order, and immediately re-triggers the matching engine for the
+    next-best candidate.
+    """
+    order = await _get_shipper_owned_order(db, shipper_id, order_id)
+    event = apply_transition(
+        order,
+        OrderTransitionEvent.shipper_reject_after_assign,
+        "shipper",
+        shipper_id,
+        {"reason": reason},
+    )
+    db.add(event)
+    order.shipper_id = None
+    await _free_up_shipper(db, shipper_id)
+    await db.commit()
+    await broadcast_order_status(order)
+    send_notification(
+        order.customer_id, "Finding a new shipper", f"Order #{order.id}'s shipper backed out; rematching"
+    )
+
+    from app.modules.matching.redis_keys import match_excluded_key
+
+    await redis.sadd(match_excluded_key(order.id), str(shipper_id))
+    await matching_engine.find_and_offer(db, redis, order.id)
+    return order
+
+
 async def start_delivery(db: AsyncSession, shipper_id: uuid.UUID, order_id: uuid.UUID) -> Order:
     order = await _get_shipper_owned_order(db, shipper_id, order_id)
     event = apply_transition(
@@ -206,6 +249,8 @@ async def complete_order(db: AsyncSession, shipper_id: uuid.UUID, order_id: uuid
     await _free_up_shipper(db, shipper_id)
     await db.commit()
     await broadcast_order_status(order)
+    send_notification(order.customer_id, "Order delivered", f"Order #{order.id} was delivered successfully")
+    send_notification(order.merchant_id, "Order delivered", f"Order #{order.id} was delivered successfully")
     return order
 
 
@@ -277,4 +322,6 @@ async def fail_order(
     await _free_up_shipper(db, shipper_id)
     await db.commit()
     await broadcast_order_status(order)
+    send_notification(order.customer_id, "Delivery failed", f"Order #{order.id} could not be delivered; you have been refunded")
+    send_notification(order.merchant_id, "Delivery failed", f"Order #{order.id} could not be delivered")
     return order

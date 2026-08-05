@@ -137,6 +137,18 @@ async def pickup_order(
     return await service.mark_picked_up(db, shipper.id, order_id)
 
 
+@router.post("/{order_id}/reject-assignment", response_model=OrderOut)
+async def reject_assignment(
+    order_id: uuid.UUID,
+    payload: FailRequest,
+    user: User = Depends(require_role(UserRole.shipper)),
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+):
+    shipper = await get_shipper_for_user(db, user.id)
+    return await service.reject_assignment(db, redis, shipper.id, order_id, payload.reason)
+
+
 @router.post("/{order_id}/start-delivery", response_model=OrderOut)
 async def start_delivery(
     order_id: uuid.UUID,

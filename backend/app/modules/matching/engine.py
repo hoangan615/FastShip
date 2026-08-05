@@ -18,6 +18,7 @@ from app.modules.matching.redis_keys import (
     shipper_status_key,
 )
 from app.modules.matching.scoring import compute_final_score
+from app.modules.notifications.service import send_notification
 from app.modules.orders.models import Order, OrderEvent
 from app.modules.orders.state_machine import OrderTransitionEvent, apply_transition
 from app.modules.shippers.models import Shipper
@@ -125,6 +126,7 @@ async def find_and_offer(db: AsyncSession, redis: Redis, order_id: uuid.UUID) ->
                 "expires_in": settings.offer_timeout_seconds,
             },
         )
+        send_notification(shipper_id, "New delivery offer", f"Order #{order_id} nearby, respond within {settings.offer_timeout_seconds}s")
 
         from app.workers.tasks_matching import offer_timeout
 
@@ -186,6 +188,8 @@ async def accept_offer(db: AsyncSession, redis: Redis, order_id: uuid.UUID, ship
     from app.modules.tracking.ws_manager import broadcast_order_status
 
     await broadcast_order_status(order)
+    send_notification(order.customer_id, "Shipper assigned", f"A shipper has been assigned to order #{order_id}")
+    send_notification(order.merchant_id, "Shipper assigned", f"A shipper has been assigned to order #{order_id}")
 
     return order
 

@@ -71,12 +71,20 @@ export default function OrderDetailScreen() {
       )}
 
       {role === "shipper" && status === "assigned" && (
-        <Pressable
-          style={styles.primaryButton}
-          onPress={() => runAction(() => api.pickupOrder(order.id))}
-        >
-          <Text style={styles.buttonText}>Mark picked up</Text>
-        </Pressable>
+        <View style={{ gap: 8 }}>
+          <Pressable
+            style={styles.primaryButton}
+            onPress={() => runAction(() => api.pickupOrder(order.id))}
+          >
+            <Text style={styles.buttonText}>Mark picked up</Text>
+          </Pressable>
+          <Pressable
+            style={styles.dangerButton}
+            onPress={() => runAction(() => api.rejectAssignment(order.id, "unable to fulfill"))}
+          >
+            <Text style={styles.buttonText}>Can't take this order</Text>
+          </Pressable>
+        </View>
       )}
       {role === "shipper" && status === "picked_up" && (
         <Pressable

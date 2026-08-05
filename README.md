@@ -46,6 +46,14 @@ FastShip/
   Surfaced on a dedicated `(merchant)/revenue` tab.
 - **Ops heatmap**: `GET /ops/heatmap` (grid-bucketed shipper density from the Redis geo index) is
   now also rendered on mobile at `(ops)/heatmap`.
+- **Shipper backing out post-acceptance**: `POST /orders/{id}/reject-assignment` lets a shipper
+  who already accepted an offer (but hasn't picked up yet) back out; the shipper is freed,
+  excluded from the immediate re-match for that order, and the matching engine is re-triggered
+  for the next-best candidate.
+- **Notifications**: `backend/app/modules/notifications/service.py` (a logging stub — swap in a
+  real push/SMS/email provider when one is chosen) is now actually wired into the order lifecycle
+  (order placed/confirmed/rejected/timed out/cancelled, shipper offered/assigned/backed out,
+  delivered/failed) rather than being dead code.
 
 ## Backend setup
 

@@ -135,6 +135,11 @@ export async function failOrder(orderId: string, reason?: string): Promise<Order
   return data;
 }
 
+export async function rejectAssignment(orderId: string, reason?: string): Promise<Order> {
+  const { data } = await apiClient.post(`/orders/${orderId}/reject-assignment`, { reason });
+  return data;
+}
+
 export async function rateOrder(
   orderId: string,
   score: number,
