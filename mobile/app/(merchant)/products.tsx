@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -13,6 +14,7 @@ import {
 import * as api from "@/api/endpoints";
 
 export default function ProductsScreen() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ["products", "mine"],
@@ -83,12 +85,15 @@ export default function ProductsScreen() {
         }
         renderItem={({ item }) => (
           <View style={styles.productRow}>
-            <View style={{ flex: 1 }}>
+            <Pressable
+              style={{ flex: 1 }}
+              onPress={() => router.push(`/(merchant)/product/${item.id}` as never)}
+            >
               <Text style={styles.productName}>{item.name}</Text>
               <Text style={styles.productMeta}>
                 {item.price} VND · {item.status}
               </Text>
-            </View>
+            </Pressable>
             <View style={styles.qtyControls}>
               <Pressable
                 style={styles.qtyButton}

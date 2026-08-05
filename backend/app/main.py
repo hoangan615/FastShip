@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from app.core.exceptions import register_exception_handlers
 from app.modules.auth.router import router as auth_router
 from app.modules.catalog.router import router as catalog_router
+from app.modules.customers.router import router as customers_router
 from app.modules.matching.router import router as matching_router
 from app.modules.ops.router import router as ops_router
 from app.modules.orders.router import router as orders_router
@@ -27,6 +28,7 @@ def create_app() -> FastAPI:
     register_exception_handlers(app)
 
     app.include_router(auth_router)
+    app.include_router(customers_router)
     app.include_router(catalog_router)
     app.include_router(orders_router)
     app.include_router(shippers_router)

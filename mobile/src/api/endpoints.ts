@@ -8,6 +8,7 @@ import type {
   Order,
   Product,
   Rating,
+  SavedAddress,
   ShipperProfile,
   SummaryReport,
   TokenResponse,
@@ -30,6 +31,27 @@ export async function register(payload: {
 export async function login(email: string, password: string): Promise<TokenResponse> {
   const { data } = await apiClient.post("/auth/login", { email, password });
   return data;
+}
+
+// --- customer addresses ---------------------------------------------------
+
+export async function listMyAddresses(): Promise<SavedAddress[]> {
+  const { data } = await apiClient.get("/customers/me/addresses");
+  return data;
+}
+
+export async function addMyAddress(payload: {
+  label: string;
+  address: string;
+  lat: number;
+  lng: number;
+}): Promise<SavedAddress> {
+  const { data } = await apiClient.post("/customers/me/addresses", payload);
+  return data;
+}
+
+export async function deleteMyAddress(addressId: string): Promise<void> {
+  await apiClient.delete(`/customers/me/addresses/${addressId}`);
 }
 
 // --- catalog -------------------------------------------------------------
@@ -61,7 +83,13 @@ export async function createProduct(payload: {
 
 export async function updateProduct(
   productId: string,
-  payload: Partial<{ name: string; price: number; stock_qty: number; status: string }>
+  payload: Partial<{
+    name: string;
+    price: number;
+    stock_qty: number;
+    status: string;
+    image_url: string;
+  }>
 ): Promise<Product> {
   const { data } = await apiClient.patch(`/catalog/products/${productId}`, payload);
   return data;

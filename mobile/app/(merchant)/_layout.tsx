@@ -8,6 +8,7 @@ export default function MerchantLayout() {
       <Tabs.Screen name="incoming-orders" options={{ title: "Orders" }} />
       <Tabs.Screen name="products" options={{ title: "Products" }} />
       <Tabs.Screen name="revenue" options={{ title: "Revenue" }} />
+      <Tabs.Screen name="product/[id]" options={{ title: "Edit Product", href: null }} />
     </Tabs>
   );
 }

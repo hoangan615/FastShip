@@ -54,6 +54,13 @@ FastShip/
   real push/SMS/email provider when one is chosen) is now actually wired into the order lifecycle
   (order placed/confirmed/rejected/timed out/cancelled, shipper offered/assigned/backed out,
   delivered/failed) rather than being dead code.
+- **Merchant product editing**: full edit screen (`(merchant)/product/[id]`) for name, price,
+  image URL, and visibility — the backend `PATCH /catalog/products/{id}` always supported this,
+  mobile previously only exposed a quick stock +/- adjuster.
+- **Customer saved addresses**: `backend/app/modules/customers/` exposes
+  `GET/POST/DELETE /customers/me/addresses` over the previously-unused `customers.default_addresses`
+  JSONB column; mobile has a dedicated `(customer)/addresses` tab, and checkout lets you pick a
+  saved address (or fall back to typing a custom one).
 
 ## Backend setup
 

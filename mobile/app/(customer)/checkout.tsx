@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
@@ -12,18 +13,27 @@ import {
 
 import * as api from "@/api/endpoints";
 import { useCartStore } from "@/stores/cartStore";
-import type { PaymentMethod } from "@/types/api";
+import type { PaymentMethod, SavedAddress } from "@/types/api";
 
 const METHODS: PaymentMethod[] = ["wallet", "card", "cod"];
+// demo coordinates around central HCMC — a real app would geocode a
+// manually-typed address; saved addresses already carry real coordinates.
+const CUSTOM_DROPOFF_COORDS = { lat: 10.7829, lng: 106.6997 };
 
 export default function CheckoutScreen() {
   const router = useRouter();
   const cart = useCartStore();
   const lines = Object.values(cart.lines);
   const [method, setMethod] = useState<PaymentMethod>("wallet");
-  const [dropoffAddress, setDropoffAddress] = useState("My place, District 1");
+  const [selectedAddress, setSelectedAddress] = useState<SavedAddress | null>(null);
+  const [customAddress, setCustomAddress] = useState("My place, District 1");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const { data: savedAddresses } = useQuery({
+    queryKey: ["customers", "me", "addresses"],
+    queryFn: api.listMyAddresses,
+  });
 
   const total = lines.reduce((sum, l) => sum + Number(l.product.price) * l.qty, 0);
 
@@ -32,13 +42,15 @@ export default function CheckoutScreen() {
     setSubmitting(true);
     setError(null);
     try {
+      const dropoff = selectedAddress
+        ? { address: selectedAddress.address, lat: selectedAddress.lat, lng: selectedAddress.lng }
+        : { address: customAddress, ...CUSTOM_DROPOFF_COORDS };
+
       const order = await api.createOrder({
         merchant_id: cart.merchantId,
         items: lines.map((l) => ({ product_id: l.product.id, qty: l.qty })),
-        // demo coordinates around central HCMC — a real app would geocode
-        // the merchant/customer addresses or use device location.
         pickup_addr: { address: "Merchant pickup point", lat: 10.7769, lng: 106.7009 },
-        dropoff_addr: { address: dropoffAddress, lat: 10.7829, lng: 106.6997 },
+        dropoff_addr: dropoff,
         payment_method: method,
       });
       cart.clear();
@@ -67,7 +79,34 @@ export default function CheckoutScreen() {
       </View>
 
       <Text style={styles.label}>Delivery address</Text>
-      <TextInput style={styles.input} value={dropoffAddress} onChangeText={setDropoffAddress} />
+      {savedAddresses && savedAddresses.length > 0 && (
+        <View style={styles.methodRow}>
+          {savedAddresses.map((a) => (
+            <Pressable
+              key={a.id}
+              style={[styles.methodChip, selectedAddress?.id === a.id && styles.methodChipSelected]}
+              onPress={() => setSelectedAddress(a)}
+            >
+              <Text style={selectedAddress?.id === a.id ? styles.methodTextSelected : styles.methodText}>
+                {a.label}
+              </Text>
+            </Pressable>
+          ))}
+          <Pressable
+            style={[styles.methodChip, selectedAddress === null && styles.methodChipSelected]}
+            onPress={() => setSelectedAddress(null)}
+          >
+            <Text style={selectedAddress === null ? styles.methodTextSelected : styles.methodText}>
+              Custom
+            </Text>
+          </Pressable>
+        </View>
+      )}
+      {selectedAddress ? (
+        <Text style={styles.addressPreview}>{selectedAddress.address}</Text>
+      ) : (
+        <TextInput style={styles.input} value={customAddress} onChangeText={setCustomAddress} />
+      )}
 
       <Text style={styles.label}>Payment method</Text>
       <View style={styles.methodRow}>
@@ -129,4 +168,11 @@ const styles = StyleSheet.create({
   },
   buttonText: { color: "white", fontWeight: "700" },
   error: { color: "#dc2626" },
+  addressPreview: {
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 10,
+    padding: 12,
+    color: "#334155",
+  },
 });

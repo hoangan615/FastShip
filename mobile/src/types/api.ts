@@ -45,6 +45,14 @@ export interface Address {
   lng: number;
 }
 
+export interface SavedAddress {
+  id: string;
+  label: string;
+  address: string;
+  lat: number;
+  lng: number;
+}
+
 export interface Order {
   id: string;
   source: string;
