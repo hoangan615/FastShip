@@ -34,6 +34,9 @@ web-build/
 # Redis dump
 *.rdb
 
+# Celery beat's local schedule state file
+celerybeat-schedule*
+
 # Terraform
 **/.terraform/
 *.tfstate

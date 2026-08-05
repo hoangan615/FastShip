@@ -1,8 +1,8 @@
-import asyncio
 import uuid
 from datetime import datetime, timedelta, timezone
 
 from app.workers.celery_app import celery_app
+from app.workers.utils import run_task
 
 
 async def offer_timeout_async(order_id: str, shipper_id: str) -> None:
@@ -28,7 +28,7 @@ def offer_timeout(order_id: str, shipper_id: str) -> None:
     checked atomically against the Redis "current offer" key inside
     `resolve_unaccepted_offer`.
     """
-    asyncio.run(offer_timeout_async(order_id, shipper_id))
+    run_task(offer_timeout_async(order_id, shipper_id))
 
 
 async def batch_update_scores_async() -> None:
@@ -123,4 +123,4 @@ def batch_update_scores() -> None:
     except proximity, which is per-order) from a rolling 7-day window and
     refreshes both the Redis cache and the DB mirror columns.
     """
-    asyncio.run(batch_update_scores_async())
+    run_task(batch_update_scores_async())

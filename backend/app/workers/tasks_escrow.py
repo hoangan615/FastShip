@@ -1,7 +1,7 @@
-import asyncio
 from datetime import datetime, timezone
 
 from app.workers.celery_app import celery_app
+from app.workers.utils import run_task
 
 
 async def release_due_escrow_async() -> None:
@@ -43,4 +43,4 @@ def release_due_escrow() -> None:
     """Runs on a fixed schedule (not per-payment countdown scheduling, per
     spec). See `release_due_escrow_async` for the actual logic.
     """
-    asyncio.run(release_due_escrow_async())
+    run_task(release_due_escrow_async())

@@ -2,6 +2,14 @@ from celery import Celery
 
 from app.config import get_settings
 
+# Registers every ORM model on Base.metadata before any task runs. Unlike
+# the API process (which imports the full module tree via app.main) or
+# pytest (via conftest.py), a Celery worker only imports whatever each
+# task module happens to import — leaving cross-model foreign keys
+# (e.g. shippers.user_id -> users.id) unresolved if a task that only
+# touches Shipper runs before anything imports the User model.
+import app.db.all_models  # noqa: F401,E402
+
 settings = get_settings()
 
 celery_app = Celery(
