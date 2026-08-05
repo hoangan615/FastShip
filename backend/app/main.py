@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 import socketio
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.exceptions import register_exception_handlers
 from app.modules.auth.router import router as auth_router
@@ -26,6 +27,18 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     app = FastAPI(title="FastShip", lifespan=lifespan)
     register_exception_handlers(app)
+
+    # Auth is Bearer-token only (no cookies), so a wildcard origin is safe
+    # here without allow_credentials — needed for any browser-based client
+    # (Expo web, a future ops web dashboard) to call this API at all, since
+    # curl/native mobile requests aren't subject to CORS and so never
+    # surfaced this gap.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     app.include_router(auth_router)
     app.include_router(customers_router)
