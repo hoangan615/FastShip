@@ -118,6 +118,89 @@ async def test_auth_with_invalid_token_is_rejected(live_server):
     assert len(received) == 1
 
 
+async def test_broadcast_order_status_reaches_customer_merchant_and_shipper_by_user_id(
+    live_server, db: AsyncSession
+):
+    """Regression test: broadcast_order_status(order) used to build room
+    names from order.customer_id/merchant_id/shipper_id, which are
+    Customer/Merchant/Shipper *profile* primary keys — a different id
+    space from the User id that the "auth" socket event actually joins a
+    room under. Every real order-status push (and, separately, every
+    match-offer push) silently reached nobody. This seeds a
+    customer/merchant/shipper where the profile id deliberately differs
+    from the user id (the normal case) and asserts a client authenticated
+    as each of them actually receives the broadcast.
+    """
+    customer_user = User(email=unique_email("cust"), password_hash="x", role="customer")
+    merchant_user = User(email=unique_email("merch"), password_hash="x", role="merchant")
+    shipper_user = User(email=unique_email("ship"), password_hash="x", role="shipper")
+    db.add_all([customer_user, merchant_user, shipper_user])
+    await db.flush()
+
+    customer = Customer(user_id=customer_user.id, name="Cust")
+    merchant = Merchant(user_id=merchant_user.id, name="Merch", address="addr", status="active")
+    db.add_all([customer, merchant])
+    await db.flush()
+    shipper = Shipper(
+        user_id=shipper_user.id, status=ShipperStatus.busy, current_lat=10.5, current_lng=106.5
+    )
+    db.add(shipper)
+    await db.flush()
+
+    order = Order(
+        source=OrderSource.customer_placed,
+        customer_id=customer.id,
+        merchant_id=merchant.id,
+        shipper_id=shipper.id,
+        status=OrderStatus.picked_up,
+        pickup_addr={"lat": 10.5, "lng": 106.5, "address": "a"},
+        dropoff_addr={"lat": 10.6, "lng": 106.5, "address": "b"},
+        subtotal=100,
+    )
+    db.add(order)
+    await db.commit()
+
+    # sanity: profile ids and user ids are genuinely different, or this
+    # test wouldn't be exercising the bug at all
+    assert customer.id != customer_user.id
+    assert merchant.id != merchant_user.id
+    assert shipper.id != shipper_user.id
+
+    clients = {}
+    received: dict[str, list[dict]] = {"customer": [], "merchant": [], "shipper": []}
+    for role_name, user in (
+        ("customer", customer_user),
+        ("merchant", merchant_user),
+        ("shipper", shipper_user),
+    ):
+        client = socketio.AsyncClient()
+
+        def make_handler(key):
+            async def handler(data):
+                received[key].append(data)
+
+            return handler
+
+        client.on("order.status_changed", make_handler(role_name))
+        await client.connect(live_server, socketio_path="socket.io")
+        await client.emit("auth", {"token": create_access_token(user.id, UserRole[role_name])})
+        clients[role_name] = client
+    await asyncio.sleep(0.3)
+
+    from app.modules.tracking.ws_manager import broadcast_order_status
+
+    await broadcast_order_status(db, order)
+    await asyncio.sleep(0.3)
+
+    for client in clients.values():
+        await client.disconnect()
+
+    for role_name in ("customer", "merchant", "shipper"):
+        assert {"order_id": str(order.id), "status": str(order.status)} in received[role_name], (
+            f"{role_name} never received the order status broadcast"
+        )
+
+
 async def test_resync_returns_order_status_and_shipper_location(
     live_server, db: AsyncSession
 ):

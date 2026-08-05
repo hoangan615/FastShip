@@ -118,8 +118,11 @@ async def find_and_offer(db: AsyncSession, redis: Redis, order_id: uuid.UUID) ->
 
         from app.modules.tracking.ws_manager import emit_to_room
 
+        # Room is keyed by the shipper's *User* id (what the "auth" socket
+        # event joins), not their Shipper-profile id (shipper_id) — see
+        # broadcast_order_status for the same distinction.
         await emit_to_room(
-            f"shipper:{shipper_id}",
+            f"shipper:{shipper.user_id}",
             "match.offer_received",
             {
                 "order_id": str(order_id),
@@ -187,7 +190,7 @@ async def accept_offer(db: AsyncSession, redis: Redis, order_id: uuid.UUID, ship
 
     from app.modules.tracking.ws_manager import broadcast_order_status
 
-    await broadcast_order_status(order)
+    await broadcast_order_status(db, order)
     send_notification(order.customer_id, "Shipper assigned", f"A shipper has been assigned to order #{order_id}")
     send_notification(order.merchant_id, "Shipper assigned", f"A shipper has been assigned to order #{order_id}")
 

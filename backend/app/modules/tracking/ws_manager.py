@@ -118,16 +118,30 @@ async def emit_to_room(room: str, event: str, data: dict) -> None:
     await sio.emit(event, data, room=room)
 
 
-async def broadcast_order_status(order) -> None:
+async def broadcast_order_status(db, order) -> None:
+    # Rooms are keyed by each client's *User* id (that's what the "auth"
+    # socket event joins, from the JWT) — but order.customer_id/merchant_id/
+    # shipper_id are Customer/Merchant/Shipper profile-table primary keys,
+    # a different id space entirely. Broadcasting to f"customer:{order.customer_id}"
+    # etc. directly would silently reach nobody, since no client ever joins
+    # a room keyed by a profile id. Resolve each profile id to its owning
+    # user_id first.
+    from app.modules.auth.models import Customer
+    from app.modules.catalog.models import Merchant
+    from app.modules.shippers.models import Shipper
+
+    customer = await db.get(Customer, order.customer_id)
+    merchant = await db.get(Merchant, order.merchant_id)
+    shipper = await db.get(Shipper, order.shipper_id) if order.shipper_id else None
+
     payload = {"order_id": str(order.id), "status": str(order.status)}
-    rooms = [
-        f"customer:{order.customer_id}",
-        f"merchant:{order.merchant_id}",
-        "ops:dashboard",
-        f"order:{order.id}",
-    ]
-    if order.shipper_id:
-        rooms.append(f"shipper:{order.shipper_id}")
+    rooms = ["ops:dashboard", f"order:{order.id}"]
+    if customer is not None:
+        rooms.append(f"customer:{customer.user_id}")
+    if merchant is not None:
+        rooms.append(f"merchant:{merchant.user_id}")
+    if shipper is not None:
+        rooms.append(f"shipper:{shipper.user_id}")
     for room in rooms:
         await sio.emit(str(WSEvent.order_status_changed), payload, room=room)
 

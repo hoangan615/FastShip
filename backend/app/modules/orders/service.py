@@ -107,7 +107,7 @@ async def confirm_order(db: AsyncSession, redis: Redis, merchant_id: uuid.UUID, 
         await catalog_service.decrement_stock(db, item.product_id, item.qty)
 
     await db.commit()
-    await broadcast_order_status(order)
+    await broadcast_order_status(db, order)
     send_notification(order.customer_id, "Order confirmed", f"Order #{order.id} was accepted by the merchant")
 
     await matching_engine.find_and_offer(db, redis, order.id)
@@ -127,7 +127,7 @@ async def reject_order(
     db.add(event)
     await payments_service.refund(db, order.id)
     await db.commit()
-    await broadcast_order_status(order)
+    await broadcast_order_status(db, order)
     send_notification(order.customer_id, "Order rejected", f"Order #{order.id} was rejected; your payment was refunded")
     return order
 
@@ -143,7 +143,7 @@ async def auto_reject_timeout(db: AsyncSession, order_id: uuid.UUID) -> None:
     db.add(event)
     await payments_service.refund(db, order.id)
     await db.commit()
-    await broadcast_order_status(order)
+    await broadcast_order_status(db, order)
     send_notification(order.customer_id, "Order timed out", f"Order #{order.id} timed out and was refunded")
 
 
@@ -156,7 +156,7 @@ async def cancel_order(db: AsyncSession, customer_id: uuid.UUID, order_id: uuid.
     db.add(event)
     await payments_service.refund(db, order.id)
     await db.commit()
-    await broadcast_order_status(order)
+    await broadcast_order_status(db, order)
     send_notification(order.merchant_id, "Order cancelled", f"Order #{order.id} was cancelled by the customer")
     return order
 
@@ -167,7 +167,7 @@ async def ops_cancel_order(db: AsyncSession, ops_user_id: uuid.UUID, order_id: u
     db.add(event)
     await payments_service.refund(db, order.id)
     await db.commit()
-    await broadcast_order_status(order)
+    await broadcast_order_status(db, order)
     return order
 
 
@@ -183,7 +183,7 @@ async def mark_picked_up(db: AsyncSession, shipper_id: uuid.UUID, order_id: uuid
     event = apply_transition(order, OrderTransitionEvent.shipper_pickup, "shipper", shipper_id)
     db.add(event)
     await db.commit()
-    await broadcast_order_status(order)
+    await broadcast_order_status(db, order)
     return order
 
 
@@ -211,7 +211,7 @@ async def reject_assignment(
     order.shipper_id = None
     await _free_up_shipper(db, shipper_id)
     await db.commit()
-    await broadcast_order_status(order)
+    await broadcast_order_status(db, order)
     send_notification(
         order.customer_id, "Finding a new shipper", f"Order #{order.id}'s shipper backed out; rematching"
     )
@@ -230,7 +230,7 @@ async def start_delivery(db: AsyncSession, shipper_id: uuid.UUID, order_id: uuid
     )
     db.add(event)
     await db.commit()
-    await broadcast_order_status(order)
+    await broadcast_order_status(db, order)
     return order
 
 
@@ -248,7 +248,7 @@ async def complete_order(db: AsyncSession, shipper_id: uuid.UUID, order_id: uuid
     await payments_service.schedule_release_on_completion(db, order.id)
     await _free_up_shipper(db, shipper_id)
     await db.commit()
-    await broadcast_order_status(order)
+    await broadcast_order_status(db, order)
     send_notification(order.customer_id, "Order delivered", f"Order #{order.id} was delivered successfully")
     send_notification(order.merchant_id, "Order delivered", f"Order #{order.id} was delivered successfully")
     return order
@@ -321,7 +321,7 @@ async def fail_order(
 
     await _free_up_shipper(db, shipper_id)
     await db.commit()
-    await broadcast_order_status(order)
+    await broadcast_order_status(db, order)
     send_notification(order.customer_id, "Delivery failed", f"Order #{order.id} could not be delivered; you have been refunded")
     send_notification(order.merchant_id, "Delivery failed", f"Order #{order.id} could not be delivered")
     return order
