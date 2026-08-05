@@ -23,12 +23,21 @@ async def set_status(
 ) -> Shipper:
     shipper.status = status
     await db.commit()
+    await redis.set(shipper_status_key(shipper.id), str(status))
     if status == ShipperStatus.available:
-        await redis.set(shipper_status_key(shipper.id), str(status))
+        # A returning shipper (e.g. toggling back online after "offline") has
+        # no pending location ping yet — the next GPS fix may be several
+        # seconds out via the mobile app's ping loop, or may never arrive if
+        # permission was denied. Without this, they'd sit in Postgres as
+        # "available" while being invisible to the matching engine's
+        # GEOSEARCH, since only update_location() writes to the geo set.
+        # Re-adding from their last known coordinates closes that gap.
+        if shipper.current_lat is not None and shipper.current_lng is not None:
+            await redis.geoadd(
+                SHIPPERS_GEO_KEY, (float(shipper.current_lng), float(shipper.current_lat), str(shipper.id))
+            )
     else:
-        await redis.set(shipper_status_key(shipper.id), str(status))
-        if status != ShipperStatus.available:
-            await redis.zrem(SHIPPERS_GEO_KEY, str(shipper.id))
+        await redis.zrem(SHIPPERS_GEO_KEY, str(shipper.id))
     return shipper
 
 
