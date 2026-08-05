@@ -33,3 +33,12 @@ web-build/
 
 # Redis dump
 *.rdb
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+!terraform.tfvars.example
+terraform.tfvars
+crash.log
+crash.*.log

@@ -1,0 +1,12 @@
+# Copy to terraform.tfvars (gitignored) and fill in real values, or pass
+# these as -var flags / TF_VAR_ environment variables in CI so secrets
+# never land in a committed file.
+
+project_id       = "my-fastship-gcp-project"
+region           = "asia-southeast1"
+environment_name = "fastship-dev"
+
+# DO NOT commit real values for these two — pass via
+# TF_VAR_postgres_admin_password / TF_VAR_jwt_secret in CI instead.
+postgres_admin_password = "REPLACE_ME"
+jwt_secret              = "REPLACE_ME_openssl_rand_-hex_32"

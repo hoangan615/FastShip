@@ -8,12 +8,19 @@ app that adapts its navigation by role.
 
 ```
 FastShip/
-├── backend/    FastAPI modular monolith (Catalog, Order, Matching, Payment, Tracking, Ops)
-├── mobile/     Expo Router app, one codebase, role-based navigation stacks
-├── shared/     Exported OpenAPI contract (optional TS codegen source for mobile)
-├── scripts/    seed.py (sample data), export_openapi.py
+├── backend/     FastAPI modular monolith (Catalog, Order, Matching, Payment, Tracking, Ops)
+├── mobile/      Expo Router app, one codebase, role-based navigation stacks
+├── shared/      Exported OpenAPI contract (optional TS codegen source for mobile)
+├── scripts/     seed.py (sample data), export_openapi.py
+├── infra/       Azure Bicep IaC (Container Apps, PostgreSQL, Managed Redis, ...)
+├── infra-gcp/   GCP Terraform IaC (Cloud Run, Cloud SQL, Memorystore, ...)
+├── docs/        deployment-azure.md, deployment-gcp.md
 └── docker-compose.yml
 ```
+
+## Cloud deployment
+
+Two parallel, ready-to-run deployment options — see [`docs/deployment-azure.md`](docs/deployment-azure.md) and [`docs/deployment-gcp.md`](docs/deployment-gcp.md) for full architecture, IaC, CI/CD, and monthly cost estimates. Short version: Azure Container Apps runs ~$80–90/mo realistic MVP cost vs. GCP Cloud Run's ~$135–145/mo for this workload shape (persistent WebSockets + always-on Celery), because Azure's Consumption plan discounts idle replicas and Cloud Run's CPU-always-allocated tier doesn't.
 
 ## Architecture
 

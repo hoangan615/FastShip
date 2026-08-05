@@ -1,0 +1,21 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environmentName": {
+      "value": "fastship-prod"
+    },
+    "location": {
+      "value": "southeastasia"
+    },
+    "postgresAdminLogin": {
+      "value": "fastshipadmin"
+    },
+    "postgresAdminPassword": {
+      "value": "DO_NOT_COMMIT_REAL_VALUE_pass_via___parameters_postgresAdminPassword=$SECRET_CLI_FLAG_instead"
+    },
+    "jwtSecret": {
+      "value": "DO_NOT_COMMIT_REAL_VALUE_pass_via___parameters_jwtSecret=$SECRET_CLI_FLAG_instead"
+    }
+  }
+}

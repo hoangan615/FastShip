@@ -1,0 +1,96 @@
+name: Deploy backend to Google Cloud Run
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/deploy-backend-gcp.yml"
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write # required for Workload Identity Federation (google-github-actions/auth) — no service-account key stored in GitHub
+  contents: read
+
+concurrency:
+  group: deploy-backend-gcp
+  cancel-in-progress: false
+
+env:
+  IMAGE_TAG: ${{ github.sha }}
+  IMAGE_NAME: api
+  # Repo Variables (Settings -> Secrets and variables -> Actions -> Variables)
+  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  GCP_REGION: ${{ vars.GCP_REGION }}
+  ARTIFACT_REPO: ${{ vars.GCP_ARTIFACT_REPO }} # e.g. asia-southeast1-docker.pkg.dev/PROJECT/fastship-dev-repo
+  API_SERVICE_NAME: ${{ vars.GCP_API_SERVICE_NAME }}
+  WORKER_SERVICE_NAME: ${{ vars.GCP_WORKER_SERVICE_NAME }}
+  BEAT_SERVICE_NAME: ${{ vars.GCP_BEAT_SERVICE_NAME }}
+  MIGRATE_JOB_NAME: ${{ vars.GCP_MIGRATE_JOB_NAME }}
+
+jobs:
+  build-push-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Google auth (Workload Identity Federation)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build image via Cloud Build (no local Docker daemon needed)
+        run: |
+          FULL_IMAGE="${ARTIFACT_REPO}/${IMAGE_NAME}:${IMAGE_TAG}"
+          gcloud builds submit ./backend \
+            --project "$GCP_PROJECT_ID" \
+            --tag "$FULL_IMAGE"
+
+      - name: Run database migration job
+        run: |
+          FULL_IMAGE="${ARTIFACT_REPO}/${IMAGE_NAME}:${IMAGE_TAG}"
+          gcloud run jobs update "$MIGRATE_JOB_NAME" \
+            --project "$GCP_PROJECT_ID" \
+            --region "$GCP_REGION" \
+            --image "$FULL_IMAGE"
+
+          # --wait blocks until the execution finishes and gcloud exits
+          # non-zero if it failed — no manual polling loop needed here,
+          # unlike the Azure Container Apps Job equivalent.
+          gcloud run jobs execute "$MIGRATE_JOB_NAME" \
+            --project "$GCP_PROJECT_ID" \
+            --region "$GCP_REGION" \
+            --wait
+
+      - name: Deploy new image to api / celery-worker / celery-beat
+        run: |
+          FULL_IMAGE="${ARTIFACT_REPO}/${IMAGE_NAME}:${IMAGE_TAG}"
+          for SERVICE in "$API_SERVICE_NAME" "$WORKER_SERVICE_NAME" "$BEAT_SERVICE_NAME"; do
+            echo "Updating $SERVICE -> $FULL_IMAGE"
+            gcloud run deploy "$SERVICE" \
+              --project "$GCP_PROJECT_ID" \
+              --region "$GCP_REGION" \
+              --image "$FULL_IMAGE"
+          done
+
+      - name: Smoke test /health
+        run: |
+          URL=$(gcloud run services describe "$API_SERVICE_NAME" \
+            --project "$GCP_PROJECT_ID" \
+            --region "$GCP_REGION" \
+            --format "value(status.url)")
+
+          for i in $(seq 1 12); do
+            if curl -sf "${URL}/health" > /dev/null; then
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "Health check attempt $i failed, retrying in 10s..."
+            sleep 10
+          done
+          echo "Health check did not pass after deploy" >&2
+          exit 1
