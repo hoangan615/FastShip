@@ -240,3 +240,12 @@ export async function opsHeatmap(): Promise<HeatmapCell[]> {
   const { data } = await apiClient.get("/ops/heatmap");
   return data;
 }
+
+export async function opsResolvePayment(paymentId: string, release: boolean): Promise<void> {
+  await apiClient.post(`/ops/payments/${paymentId}/resolve`, { release });
+}
+
+export async function opsReassignOrder(orderId: string): Promise<{ order_id: string; offered_to_shipper_id: string | null }> {
+  const { data } = await apiClient.post(`/ops/orders/${orderId}/reassign`);
+  return data;
+}

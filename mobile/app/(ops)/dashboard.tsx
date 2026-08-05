@@ -1,12 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
-import { FlatList, StyleSheet, Text, View } from "react-native";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
 import * as api from "@/api/endpoints";
 import { StatusBadge } from "@/components/StatusBadge";
 import { connectSocket, getSocket } from "@/api/ws";
 
 export default function OpsDashboardScreen() {
+  const queryClient = useQueryClient();
+  const [reassigningId, setReassigningId] = useState<string | null>(null);
   const liveOrders = useQuery({
     queryKey: ["ops", "orders", "live"],
     queryFn: api.opsLiveOrders,
@@ -17,6 +19,16 @@ export default function OpsDashboardScreen() {
     queryFn: api.opsSummary,
     refetchInterval: 15_000,
   });
+
+  async function handleReassign(orderId: string) {
+    setReassigningId(orderId);
+    try {
+      await api.opsReassignOrder(orderId);
+      queryClient.invalidateQueries({ queryKey: ["ops", "orders", "live"] });
+    } finally {
+      setReassigningId(null);
+    }
+  }
 
   useEffect(() => {
     connectSocket();
@@ -56,6 +68,19 @@ export default function OpsDashboardScreen() {
           <View style={styles.row}>
             <Text style={styles.orderId}>#{item.id.slice(0, 8)}</Text>
             <StatusBadge status={item.status} />
+            {item.status === "pending" && !item.shipper_id && (
+              <Pressable
+                style={styles.reassignButton}
+                disabled={reassigningId === item.id}
+                onPress={() => handleReassign(item.id)}
+              >
+                {reassigningId === item.id ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <Text style={styles.reassignButtonText}>Reassign</Text>
+                )}
+              </Pressable>
+            )}
           </View>
         )}
       />
@@ -90,9 +115,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    gap: 8,
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: "#e2e8f0",
   },
   orderId: { fontWeight: "600" },
+  reassignButton: {
+    backgroundColor: "#0f172a",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  reassignButtonText: { color: "white", fontWeight: "700", fontSize: 12 },
 });
