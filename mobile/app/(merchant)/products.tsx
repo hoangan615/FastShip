@@ -1,19 +1,14 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { FlatList, Pressable, Text, View } from "react-native";
 
 import * as api from "@/api/endpoints";
+import { Button, EmptyState, IconButton, Screen, TextField } from "@/components/ui";
+import { useTheme } from "@/theme";
 
 export default function ProductsScreen() {
+  const theme = useTheme();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data, isLoading, refetch, isRefetching } = useQuery({
@@ -51,102 +46,75 @@ export default function ProductsScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.heading}>Add product</Text>
-      <View style={styles.form}>
-        <TextInput style={styles.input} placeholder="Name" value={name} onChangeText={setName} />
-        <TextInput
-          style={styles.input}
-          placeholder="Price"
-          keyboardType="numeric"
-          value={price}
-          onChangeText={setPrice}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Stock"
-          keyboardType="numeric"
-          value={stock}
-          onChangeText={setStock}
-        />
-        <Pressable style={styles.addButton} onPress={handleCreate} disabled={creating}>
-          {creating ? <ActivityIndicator color="white" /> : <Text style={styles.addButtonText}>Add</Text>}
-        </Pressable>
+    <Screen scroll>
+      <Text style={[theme.typography.heading, { color: theme.colors.text }]}>Add product</Text>
+      <View style={{ gap: theme.spacing.sm }}>
+        <TextField placeholder="Name" value={name} onChangeText={setName} />
+        <TextField placeholder="Price" keyboardType="numeric" value={price} onChangeText={setPrice} />
+        <TextField placeholder="Stock" keyboardType="numeric" value={stock} onChangeText={setStock} />
+        <Button label="Add" onPress={handleCreate} loading={creating} />
       </View>
 
-      <Text style={styles.heading}>Your products</Text>
+      <Text style={[theme.typography.heading, { color: theme.colors.text, marginTop: theme.spacing.md }]}>
+        Your products
+      </Text>
       <FlatList
         data={data ?? []}
         keyExtractor={(p) => p.id}
+        scrollEnabled={false}
         onRefresh={refetch}
         refreshing={isRefetching}
         ListEmptyComponent={
-          <Text style={styles.empty}>{isLoading ? "Loading..." : "No products yet."}</Text>
+          <EmptyState
+            icon="cube-outline"
+            title={isLoading ? "Loading..." : "No products yet"}
+            loading={isLoading}
+          />
         }
         renderItem={({ item }) => (
-          <View style={styles.productRow}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              paddingVertical: theme.spacing.md,
+              borderBottomWidth: 1,
+              borderBottomColor: theme.colors.border,
+            }}
+          >
             <Pressable
               style={{ flex: 1 }}
               onPress={() => router.push(`/(merchant)/product/${item.id}` as never)}
             >
-              <Text style={styles.productName}>{item.name}</Text>
-              <Text style={styles.productMeta}>
+              <Text style={[theme.typography.bodyStrong, { color: theme.colors.text }]}>{item.name}</Text>
+              <Text style={[theme.typography.caption, { color: theme.colors.textMuted, marginTop: 2 }]}>
                 {item.price} VND · {item.status}
               </Text>
             </Pressable>
-            <View style={styles.qtyControls}>
-              <Pressable
-                style={styles.qtyButton}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <IconButton
+                name="remove"
+                variant="filled"
+                size={16}
                 onPress={() => adjustStock(item.id, -1, item.stock_qty)}
+              />
+              <Text
+                style={[
+                  theme.typography.bodyStrong,
+                  { color: theme.colors.text, minWidth: 20, textAlign: "center" },
+                ]}
               >
-                <Text style={styles.qtyButtonText}>-</Text>
-              </Pressable>
-              <Text style={styles.qtyValue}>{item.stock_qty}</Text>
-              <Pressable
-                style={styles.qtyButton}
+                {item.stock_qty}
+              </Text>
+              <IconButton
+                name="add"
+                variant="filled"
+                size={16}
                 onPress={() => adjustStock(item.id, 1, item.stock_qty)}
-              >
-                <Text style={styles.qtyButtonText}>+</Text>
-              </Pressable>
+              />
             </View>
           </View>
         )}
       />
-    </View>
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  heading: { fontSize: 16, fontWeight: "700", marginTop: 12, marginBottom: 8 },
-  form: { gap: 8 },
-  input: { borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 10, padding: 10 },
-  addButton: {
-    backgroundColor: "#0f172a",
-    borderRadius: 10,
-    padding: 12,
-    alignItems: "center",
-  },
-  addButtonText: { color: "white", fontWeight: "700" },
-  empty: { color: "#94a3b8", textAlign: "center", marginTop: 24 },
-  productRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
-  },
-  productName: { fontWeight: "600" },
-  productMeta: { color: "#475569", marginTop: 2, textTransform: "capitalize" },
-  qtyControls: { flexDirection: "row", alignItems: "center", gap: 10 },
-  qtyButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#0f172a",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  qtyButtonText: { color: "white", fontWeight: "700", fontSize: 16 },
-  qtyValue: { minWidth: 20, textAlign: "center", fontWeight: "600" },
-});

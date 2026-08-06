@@ -1,12 +1,15 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { FlatList, Text, View } from "react-native";
 
 import * as api from "@/api/endpoints";
-import { StatusBadge } from "@/components/StatusBadge";
 import { connectSocket, getSocket } from "@/api/ws";
+import { StatusBadge } from "@/components/StatusBadge";
+import { Button, Card, EmptyState, Screen } from "@/components/ui";
+import { useTheme } from "@/theme";
 
 export default function OpsDashboardScreen() {
+  const theme = useTheme();
   const queryClient = useQueryClient();
   const [reassigningId, setReassigningId] = useState<string | null>(null);
   const liveOrders = useQuery({
@@ -49,9 +52,9 @@ export default function OpsDashboardScreen() {
   }, []);
 
   return (
-    <View style={styles.container}>
+    <Screen>
       {summary.data && (
-        <View style={styles.statsRow}>
+        <View style={{ flexDirection: "row", gap: theme.spacing.sm, marginBottom: theme.spacing.lg }}>
           <Stat label="Active" value={summary.data.active_orders} />
           <Stat label="Completed" value={summary.data.completed_orders} />
           <Stat label="Failed" value={summary.data.failed_orders} />
@@ -59,73 +62,61 @@ export default function OpsDashboardScreen() {
         </View>
       )}
 
-      <Text style={styles.heading}>Live orders</Text>
+      <Text style={[theme.typography.heading, { color: theme.colors.text, marginBottom: theme.spacing.sm }]}>
+        Live orders
+      </Text>
       <FlatList
         data={liveOrders.data ?? []}
         keyExtractor={(o) => o.id}
-        ListEmptyComponent={<Text style={styles.empty}>No active orders.</Text>}
+        ListEmptyComponent={<EmptyState icon="pulse-outline" title="No active orders" />}
         renderItem={({ item }) => (
-          <View style={styles.row}>
-            <Text style={styles.orderId}>#{item.id.slice(0, 8)}</Text>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: theme.spacing.sm,
+              paddingVertical: theme.spacing.sm + 2,
+              borderBottomWidth: 1,
+              borderBottomColor: theme.colors.border,
+            }}
+          >
+            <Text style={[theme.typography.bodyStrong, { color: theme.colors.text }]}>
+              #{item.id.slice(0, 8)}
+            </Text>
             <StatusBadge status={item.status} />
             {item.status === "pending" && !item.shipper_id && (
-              <Pressable
-                style={styles.reassignButton}
-                disabled={reassigningId === item.id}
+              <Button
+                label="Reassign"
+                fullWidth={false}
+                loading={reassigningId === item.id}
                 onPress={() => handleReassign(item.id)}
-              >
-                {reassigningId === item.id ? (
-                  <ActivityIndicator color="white" size="small" />
-                ) : (
-                  <Text style={styles.reassignButtonText}>Reassign</Text>
-                )}
-              </Pressable>
+              />
             )}
           </View>
         )}
       />
-    </View>
+    </Screen>
   );
 }
 
 function Stat({ label, value }: { label: string; value: number }) {
+  const theme = useTheme();
   return (
-    <View style={styles.stat}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+    <View style={{ flex: 1 }}>
+      <Card>
+        <Text style={[theme.typography.heading, { color: theme.colors.text, textAlign: "center" }]}>
+          {value}
+        </Text>
+        <Text
+          style={[
+            theme.typography.small,
+            { color: theme.colors.textMuted, textAlign: "center", marginTop: 4, fontWeight: "500" },
+          ]}
+        >
+          {label}
+        </Text>
+      </Card>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  statsRow: { flexDirection: "row", gap: 8, marginBottom: 16 },
-  stat: {
-    flex: 1,
-    backgroundColor: "#f1f5f9",
-    borderRadius: 10,
-    padding: 10,
-    alignItems: "center",
-  },
-  statValue: { fontSize: 20, fontWeight: "800" },
-  statLabel: { color: "#64748b", fontSize: 12 },
-  heading: { fontSize: 16, fontWeight: "700", marginBottom: 8 },
-  empty: { color: "#94a3b8", textAlign: "center", marginTop: 24 },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 8,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
-  },
-  orderId: { fontWeight: "600" },
-  reassignButton: {
-    backgroundColor: "#0f172a",
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  reassignButtonText: { color: "white", fontWeight: "700", fontSize: 12 },
-});

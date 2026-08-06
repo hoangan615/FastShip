@@ -1,16 +1,92 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, Text, View } from "react-native";
 
 import * as api from "@/api/endpoints";
 import { StatusBadge } from "@/components/StatusBadge";
+import { Button, Card, EmptyState, Screen } from "@/components/ui";
 import { useOrder } from "@/hooks/useOrders";
 import { useOrderTracking } from "@/hooks/useOrderTracking";
 import { useAuthStore } from "@/stores/authStore";
+import { useTheme, type Theme } from "@/theme";
 import { useTrackingStore } from "@/stores/trackingStore";
 
+interface OrderAction {
+  key: string;
+  label: string;
+  variant: "primary" | "danger";
+  run: () => Promise<unknown>;
+  confirm?: { title: string; message: string; confirmLabel: string };
+}
+
+function getActionsFor(
+  role: string | null,
+  status: string,
+  orderId: string
+): OrderAction[] {
+  if (role === "customer" && status === "pending_confirmation") {
+    return [
+      {
+        key: "cancel",
+        label: "Cancel order",
+        variant: "danger",
+        run: () => api.cancelOrder(orderId),
+        confirm: {
+          title: "Cancel order",
+          message: "Are you sure you want to cancel this order?",
+          confirmLabel: "Cancel order",
+        },
+      },
+    ];
+  }
+
+  if (role === "shipper" && status === "assigned") {
+    return [
+      { key: "pickup", label: "Mark picked up", variant: "primary", run: () => api.pickupOrder(orderId) },
+      {
+        key: "reject",
+        label: "Can't take this order",
+        variant: "danger",
+        run: () => api.rejectAssignment(orderId, "unable to fulfill"),
+        confirm: {
+          title: "Reject assignment",
+          message: "You won't be able to take this order back once rejected.",
+          confirmLabel: "Reject",
+        },
+      },
+    ];
+  }
+
+  if (role === "shipper" && status === "picked_up") {
+    return [
+      { key: "start", label: "Start delivery", variant: "primary", run: () => api.startDelivery(orderId) },
+    ];
+  }
+
+  if (role === "shipper" && status === "delivering") {
+    return [
+      { key: "complete", label: "Mark delivered", variant: "primary", run: () => api.completeOrder(orderId) },
+      {
+        key: "fail",
+        label: "Report failure",
+        variant: "danger",
+        run: () => api.failOrder(orderId, "delivery failed"),
+        confirm: {
+          title: "Report delivery failure",
+          message: "This marks the order as failed and cannot be undone.",
+          confirmLabel: "Report failure",
+        },
+      },
+    ];
+  }
+
+  return [];
+}
+
 export default function OrderDetailScreen() {
+  const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: order, isLoading, refetch } = useOrder(id);
   const { status: liveStatus } = useOrderTracking(id);
@@ -19,102 +95,89 @@ export default function OrderDetailScreen() {
   const shipperLocation = useTrackingStore((s) =>
     order?.shipper_id ? s.shipperLocationById[order.shipper_id] : undefined
   );
+  const [runningKey, setRunningKey] = useState<string | null>(null);
 
-  async function runAction(action: () => Promise<unknown>) {
-    await action();
-    queryClient.invalidateQueries({ queryKey: ["orders"] });
-    refetch();
+  async function runAction(action: OrderAction) {
+    setRunningKey(action.key);
+    try {
+      await action.run();
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      refetch();
+    } finally {
+      setRunningKey(null);
+    }
+  }
+
+  function handleActionPress(action: OrderAction) {
+    if (!action.confirm) {
+      runAction(action);
+      return;
+    }
+    Alert.alert(action.confirm.title, action.confirm.message, [
+      { text: "Cancel", style: "cancel" },
+      { text: action.confirm.confirmLabel, style: "destructive", onPress: () => runAction(action) },
+    ]);
   }
 
   if (isLoading || !order) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator />
-      </View>
+      <Screen center>
+        <EmptyState icon="receipt-outline" title="Loading..." loading />
+      </Screen>
     );
   }
 
   const status = liveStatus ?? order.status;
+  const actions = getActionsFor(role, status, order.id);
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Order #{order.id.slice(0, 8)}</Text>
+    <Screen scroll>
+      <Text style={[theme.typography.title, { color: theme.colors.text }]}>
+        Order #{order.id.slice(0, 8)}
+      </Text>
       <StatusBadge status={status} />
 
-      <View style={styles.section}>
-        <Text style={styles.label}>Pickup</Text>
-        <Text>{order.pickup_addr.address}</Text>
-        <Text style={styles.label}>Dropoff</Text>
-        <Text>{order.dropoff_addr.address}</Text>
-        <Text style={styles.label}>Subtotal</Text>
-        <Text>{order.subtotal} VND</Text>
-      </View>
+      <Card style={{ gap: theme.spacing.xs }}>
+        <Text style={[theme.typography.small, { color: theme.colors.textMuted }]}>Pickup</Text>
+        <Text style={{ color: theme.colors.text }}>{order.pickup_addr.address}</Text>
+        <Text style={[theme.typography.small, { color: theme.colors.textMuted, marginTop: theme.spacing.xs }]}>
+          Dropoff
+        </Text>
+        <Text style={{ color: theme.colors.text }}>{order.dropoff_addr.address}</Text>
+        <Text style={[theme.typography.small, { color: theme.colors.textMuted, marginTop: theme.spacing.xs }]}>
+          Subtotal
+        </Text>
+        <Text style={{ color: theme.colors.text }}>{order.subtotal} VND</Text>
+      </Card>
 
       {shipperLocation && (
-        <View style={styles.section}>
-          <Text style={styles.label}>Shipper location (live)</Text>
-          <Text>
+        <Card style={{ gap: theme.spacing.xs }}>
+          <Text style={[theme.typography.small, { color: theme.colors.textMuted }]}>
+            Shipper location (live)
+          </Text>
+          <Text style={{ color: theme.colors.text }}>
             {shipperLocation.lat.toFixed(5)}, {shipperLocation.lng.toFixed(5)}
           </Text>
-        </View>
+        </Card>
       )}
 
       {role === "customer" && status === "completed" && <RatingSection orderId={order.id} />}
 
-      {role === "customer" && status === "pending_confirmation" && (
-        <Pressable
-          style={styles.dangerButton}
-          onPress={() => runAction(() => api.cancelOrder(order.id))}
-        >
-          <Text style={styles.buttonText}>Cancel order</Text>
-        </Pressable>
-      )}
-
-      {role === "shipper" && status === "assigned" && (
-        <View style={{ gap: 8 }}>
-          <Pressable
-            style={styles.primaryButton}
-            onPress={() => runAction(() => api.pickupOrder(order.id))}
-          >
-            <Text style={styles.buttonText}>Mark picked up</Text>
-          </Pressable>
-          <Pressable
-            style={styles.dangerButton}
-            onPress={() => runAction(() => api.rejectAssignment(order.id, "unable to fulfill"))}
-          >
-            <Text style={styles.buttonText}>Can't take this order</Text>
-          </Pressable>
-        </View>
-      )}
-      {role === "shipper" && status === "picked_up" && (
-        <Pressable
-          style={styles.primaryButton}
-          onPress={() => runAction(() => api.startDelivery(order.id))}
-        >
-          <Text style={styles.buttonText}>Start delivery</Text>
-        </Pressable>
-      )}
-      {role === "shipper" && status === "delivering" && (
-        <View style={{ gap: 8 }}>
-          <Pressable
-            style={styles.primaryButton}
-            onPress={() => runAction(() => api.completeOrder(order.id))}
-          >
-            <Text style={styles.buttonText}>Mark delivered</Text>
-          </Pressable>
-          <Pressable
-            style={styles.dangerButton}
-            onPress={() => runAction(() => api.failOrder(order.id, "delivery failed"))}
-          >
-            <Text style={styles.buttonText}>Report failure</Text>
-          </Pressable>
-        </View>
-      )}
-    </ScrollView>
+      {actions.map((action) => (
+        <Button
+          key={action.key}
+          label={action.label}
+          variant={action.variant}
+          loading={runningKey === action.key}
+          onPress={() => handleActionPress(action)}
+        />
+      ))}
+    </Screen>
   );
 }
 
 function RatingSection({ orderId }: { orderId: string }) {
+  const theme = useTheme();
   const queryClient = useQueryClient();
   const [score, setScore] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -139,62 +202,43 @@ function RatingSection({ orderId }: { orderId: string }) {
 
   if (existingRating) {
     return (
-      <View style={styles.section}>
-        <Text style={styles.label}>Your rating</Text>
-        <Text style={styles.stars}>{"★".repeat(existingRating.score)}</Text>
-      </View>
+      <Card style={{ gap: theme.spacing.xs }}>
+        <Text style={[theme.typography.small, { color: theme.colors.textMuted }]}>Your rating</Text>
+        <Stars score={existingRating.score} theme={theme} />
+      </Card>
     );
   }
 
   return (
-    <View style={styles.section}>
-      <Text style={styles.label}>Rate your delivery</Text>
-      <View style={styles.starRow}>
+    <Card style={{ gap: theme.spacing.sm }}>
+      <Text style={[theme.typography.small, { color: theme.colors.textMuted }]}>Rate your delivery</Text>
+      <View style={{ flexDirection: "row", gap: 4 }}>
         {[1, 2, 3, 4, 5].map((n) => (
-          <Pressable key={n} onPress={() => setScore(n)}>
-            <Text style={[styles.star, n <= score && styles.starFilled]}>{"★"}</Text>
+          <Pressable key={n} onPress={() => setScore(n)} hitSlop={6}>
+            <Ionicons
+              name={n <= score ? "star" : "star-outline"}
+              size={32}
+              color={n <= score ? theme.colors.warning : theme.colors.border}
+            />
           </Pressable>
         ))}
       </View>
-      <Pressable
-        style={[styles.primaryButton, score < 1 && styles.buttonDisabled]}
-        onPress={submit}
-        disabled={submitting || score < 1}
-      >
-        {submitting ? (
-          <ActivityIndicator color="white" />
-        ) : (
-          <Text style={styles.buttonText}>Submit rating</Text>
-        )}
-      </Pressable>
-    </View>
+      <Button label="Submit rating" onPress={submit} loading={submitting} disabled={score < 1} />
+    </Card>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { padding: 16, gap: 12 },
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  title: { fontSize: 20, fontWeight: "700" },
-  section: { gap: 4, marginTop: 8 },
-  label: { fontWeight: "600", color: "#475569", marginTop: 6 },
-  primaryButton: {
-    backgroundColor: "#0f172a",
-    borderRadius: 10,
-    padding: 14,
-    alignItems: "center",
-    marginTop: 12,
-  },
-  dangerButton: {
-    backgroundColor: "#dc2626",
-    borderRadius: 10,
-    padding: 14,
-    alignItems: "center",
-    marginTop: 12,
-  },
-  buttonText: { color: "white", fontWeight: "700" },
-  buttonDisabled: { opacity: 0.5 },
-  stars: { fontSize: 22, color: "#f59e0b" },
-  starRow: { flexDirection: "row", gap: 4 },
-  star: { fontSize: 32, color: "#cbd5e1" },
-  starFilled: { color: "#f59e0b" },
-});
+function Stars({ score, theme }: { score: number; theme: Theme }) {
+  return (
+    <View style={{ flexDirection: "row", gap: 2 }}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <Ionicons
+          key={n}
+          name={n <= score ? "star" : "star-outline"}
+          size={20}
+          color={n <= score ? theme.colors.warning : theme.colors.border}
+        />
+      ))}
+    </View>
+  );
+}

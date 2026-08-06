@@ -1,23 +1,17 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Image, Text, View } from "react-native";
 
 import * as api from "@/api/endpoints";
+import { Button, Chip, EmptyState, Screen, TextField } from "@/components/ui";
+import { useTheme } from "@/theme";
 import type { ProductStatus } from "@/types/api";
 
 const STATUSES: ProductStatus[] = ["active", "out_of_stock", "hidden"];
 
 export default function EditProductScreen() {
+  const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -69,91 +63,52 @@ export default function EditProductScreen() {
 
   if (isLoading || !product) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator />
-      </View>
+      <Screen center>
+        <EmptyState icon="cube-outline" title="Loading..." loading />
+      </Screen>
     );
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      {imageUrl ? <Image source={{ uri: imageUrl }} style={styles.preview} /> : null}
+    <Screen scroll>
+      {imageUrl ? (
+        <Image
+          source={{ uri: imageUrl }}
+          style={{ width: "100%", height: 180, borderRadius: theme.radius.lg, backgroundColor: theme.colors.surfaceAlt }}
+        />
+      ) : null}
 
-      <Text style={styles.label}>Name</Text>
-      <TextInput style={styles.input} value={name} onChangeText={setName} />
-
-      <Text style={styles.label}>Price (VND)</Text>
-      <TextInput style={styles.input} keyboardType="numeric" value={price} onChangeText={setPrice} />
-
-      <Text style={styles.label}>Stock quantity</Text>
-      <TextInput
-        style={styles.input}
+      <TextField label="Name" value={name} onChangeText={setName} />
+      <TextField label="Price (VND)" keyboardType="numeric" value={price} onChangeText={setPrice} />
+      <TextField
+        label="Stock quantity"
         keyboardType="numeric"
         value={stockQty}
         onChangeText={setStockQty}
       />
-
-      <Text style={styles.label}>Image URL</Text>
-      <TextInput
-        style={styles.input}
+      <TextField
+        label="Image URL"
         placeholder="https://..."
         autoCapitalize="none"
         value={imageUrl}
         onChangeText={setImageUrl}
       />
 
-      <Text style={styles.label}>Visibility</Text>
-      <View style={styles.statusRow}>
+      <Text style={[theme.typography.bodyStrong, { color: theme.colors.text }]}>Visibility</Text>
+      <View style={{ flexDirection: "row", gap: theme.spacing.sm }}>
         {STATUSES.map((s) => (
-          <Pressable
-            key={s}
-            style={[styles.statusChip, status === s && styles.statusChipSelected]}
-            onPress={() => setStatus(s)}
-          >
-            <Text style={status === s ? styles.statusTextSelected : styles.statusText}>
-              {s.replace("_", " ")}
-            </Text>
-          </Pressable>
+          <Chip key={s} label={s.replace("_", " ")} selected={status === s} onPress={() => setStatus(s)} />
         ))}
       </View>
-      <Text style={styles.hint}>
+      <Text style={[theme.typography.small, { color: theme.colors.textMuted, fontWeight: "400" }]}>
         Stock quantity of 0 always forces the product to "out of stock" automatically.
       </Text>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error && <Text style={{ color: theme.colors.danger }}>{error}</Text>}
 
-      <Pressable style={styles.saveButton} onPress={handleSave} disabled={saving}>
-        {saving ? <ActivityIndicator color="white" /> : <Text style={styles.saveButtonText}>Save changes</Text>}
-      </Pressable>
-    </ScrollView>
+      <View style={{ marginTop: theme.spacing.sm }}>
+        <Button label="Save changes" onPress={handleSave} loading={saving} />
+      </View>
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { padding: 16, gap: 8 },
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  preview: { width: "100%", height: 180, borderRadius: 12, backgroundColor: "#f1f5f9" },
-  label: { fontWeight: "600", marginTop: 8, color: "#334155" },
-  input: { borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 10, padding: 12 },
-  statusRow: { flexDirection: "row", gap: 8 },
-  statusChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#cbd5e1",
-  },
-  statusChipSelected: { backgroundColor: "#0f172a", borderColor: "#0f172a" },
-  statusText: { color: "#0f172a", textTransform: "capitalize" },
-  statusTextSelected: { color: "white", textTransform: "capitalize" },
-  hint: { color: "#94a3b8", fontSize: 12 },
-  error: { color: "#dc2626" },
-  saveButton: {
-    backgroundColor: "#16a34a",
-    borderRadius: 10,
-    padding: 14,
-    alignItems: "center",
-    marginTop: 16,
-  },
-  saveButtonText: { color: "white", fontWeight: "700" },
-});

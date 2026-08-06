@@ -2,14 +2,17 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Location from "expo-location";
 import { Link } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, StyleSheet, Switch, Text, View } from "react-native";
+import { Switch, Text, View } from "react-native";
 
 import * as api from "@/api/endpoints";
 import { connectSocket, getSocket } from "@/api/ws";
+import { Button, Card, EmptyState, Screen } from "@/components/ui";
+import { useTheme } from "@/theme";
 
 const PING_INTERVAL_MS = 7_000; // spec: shipper location ping every 5-10s
 
 export default function ShipperHomeScreen() {
+  const theme = useTheme();
   const queryClient = useQueryClient();
   const { data: profile, isLoading } = useQuery({
     queryKey: ["shippers", "me"],
@@ -17,6 +20,7 @@ export default function ShipperHomeScreen() {
   });
   const [toggling, setToggling] = useState(false);
   const [offer, setOffer] = useState<{ order_id: string; expires_in: number } | null>(null);
+  const [responding, setResponding] = useState(false);
   const pingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isOnline = profile?.status === "available" || profile?.status === "busy";
@@ -69,93 +73,82 @@ export default function ShipperHomeScreen() {
 
   async function respondToOffer(accept: boolean) {
     if (!offer) return;
-    if (accept) {
-      await api.acceptOffer(offer.order_id);
-    } else {
-      await api.declineOffer(offer.order_id);
+    setResponding(true);
+    try {
+      if (accept) {
+        await api.acceptOffer(offer.order_id);
+      } else {
+        await api.declineOffer(offer.order_id);
+      }
+      setOffer(null);
+      queryClient.invalidateQueries({ queryKey: ["shippers", "me"] });
+      queryClient.invalidateQueries({ queryKey: ["orders", "shipper", "mine"] });
+    } finally {
+      setResponding(false);
     }
-    setOffer(null);
-    queryClient.invalidateQueries({ queryKey: ["shippers", "me"] });
-    queryClient.invalidateQueries({ queryKey: ["orders", "shipper", "mine"] });
   }
 
   if (isLoading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator />
-      </View>
+      <Screen center>
+        <EmptyState icon="bicycle-outline" title="Loading..." loading />
+      </Screen>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.toggleRow}>
-        <Text style={styles.toggleLabel}>{isOnline ? "Online" : "Offline"}</Text>
-        <Switch value={!!isOnline} onValueChange={toggleOnline} disabled={toggling} />
+    <Screen>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+        <Text style={[theme.typography.title, { color: theme.colors.text }]}>
+          {isOnline ? "Online" : "Offline"}
+        </Text>
+        <Switch
+          value={!!isOnline}
+          onValueChange={toggleOnline}
+          disabled={toggling}
+          trackColor={{ true: theme.colors.success }}
+        />
       </View>
-      <Text style={styles.hint}>
+      <Text style={[theme.typography.body, { color: theme.colors.textMuted, marginTop: theme.spacing.xs }]}>
         {isOnline
           ? "Sending your location so nearby orders can find you."
           : "Go online to start receiving delivery offers."}
       </Text>
 
       {offer && (
-        <View style={styles.offerCard}>
-          <Text style={styles.offerTitle}>New delivery offer!</Text>
-          <Text>Expires in ~{offer.expires_in}s</Text>
-          <View style={styles.offerActions}>
-            <Text style={styles.acceptButton} onPress={() => respondToOffer(true)}>
-              Accept
-            </Text>
-            <Text style={styles.declineButton} onPress={() => respondToOffer(false)}>
-              Decline
-            </Text>
+        <Card variant="tinted-warning" style={{ marginTop: theme.spacing.lg, gap: theme.spacing.sm }}>
+          <Text style={[theme.typography.subheading, { color: theme.colors.warningFg }]}>
+            New delivery offer!
+          </Text>
+          <Text style={{ color: theme.colors.warningFg }}>Expires in ~{offer.expires_in}s</Text>
+          <View style={{ flexDirection: "row", gap: theme.spacing.sm, marginTop: theme.spacing.xs }}>
+            <View style={{ flex: 1 }}>
+              <Button
+                label="Accept"
+                icon="checkmark"
+                style={{ backgroundColor: theme.colors.success }}
+                loading={responding}
+                onPress={() => respondToOffer(true)}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Button
+                label="Decline"
+                icon="close"
+                variant="danger"
+                loading={responding}
+                onPress={() => respondToOffer(false)}
+              />
+            </View>
           </View>
-        </View>
+        </Card>
       )}
 
       {profile?.active_order_id && (
-        <Link href={`/order/${profile.active_order_id}`} style={styles.activeLink}>
-          <Text>View active order {"->"}</Text>
+        <Link href={`/order/${profile.active_order_id}`} style={{ marginTop: theme.spacing.lg }}>
+          <Text style={{ color: theme.colors.primary, fontWeight: "600" }}>View active order →</Text>
         </Link>
       )}
-    </View>
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, gap: 12 },
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  toggleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  toggleLabel: { fontSize: 20, fontWeight: "700" },
-  hint: { color: "#64748b" },
-  offerCard: {
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: "#fef3c7",
-    borderWidth: 1,
-    borderColor: "#f59e0b",
-    gap: 6,
-  },
-  offerTitle: { fontWeight: "700", fontSize: 16 },
-  offerActions: { flexDirection: "row", gap: 16, marginTop: 8 },
-  acceptButton: {
-    color: "white",
-    backgroundColor: "#16a34a",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    overflow: "hidden",
-    fontWeight: "700",
-  },
-  declineButton: {
-    color: "white",
-    backgroundColor: "#dc2626",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    overflow: "hidden",
-    fontWeight: "700",
-  },
-  activeLink: { marginTop: 8 },
-});

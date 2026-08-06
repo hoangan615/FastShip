@@ -1,18 +1,11 @@
 import { Link, useRouter } from "expo-router";
 import { useState } from "react";
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { KeyboardAvoidingView, Platform, Text, View } from "react-native";
 
 import * as api from "@/api/endpoints";
+import { Button, TextField } from "@/components/ui";
 import { useAuthStore } from "@/stores/authStore";
+import { useTheme } from "@/theme";
 
 const ROLE_HOME: Record<string, string> = {
   customer: "/(customer)/catalog",
@@ -22,6 +15,7 @@ const ROLE_HOME: Record<string, string> = {
 };
 
 export default function LoginScreen() {
+  const theme = useTheme();
   const router = useRouter();
   const setAuth = useAuthStore((s) => s.setAuth);
   const [email, setEmail] = useState("");
@@ -45,59 +39,43 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <Text style={styles.title}>FastShip</Text>
-      <Text style={styles.subtitle}>Sign in to continue</Text>
+      <View style={{ flex: 1, justifyContent: "center", padding: theme.spacing.xxl, gap: theme.spacing.md }}>
+        <Text style={[theme.typography.display, { color: theme.colors.text, textAlign: "center" }]}>
+          FastShip
+        </Text>
+        <Text
+          style={[
+            theme.typography.body,
+            { color: theme.colors.textMuted, textAlign: "center", marginBottom: theme.spacing.lg },
+          ]}
+        >
+          Sign in to continue
+        </Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        autoCapitalize="none"
-        keyboardType="email-address"
-        value={email}
-        onChangeText={setEmail}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
+        <TextField
+          placeholder="Email"
+          autoCapitalize="none"
+          keyboardType="email-address"
+          value={email}
+          onChangeText={setEmail}
+        />
+        <TextField placeholder="Password" secureTextEntry value={password} onChangeText={setPassword} />
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error && (
+          <Text style={[theme.typography.caption, { color: theme.colors.danger }]}>{error}</Text>
+        )}
 
-      <Pressable style={styles.button} onPress={handleLogin} disabled={loading}>
-        {loading ? <ActivityIndicator color="white" /> : <Text style={styles.buttonText}>Sign in</Text>}
-      </Pressable>
+        <View style={{ marginTop: theme.spacing.sm }}>
+          <Button label="Sign in" onPress={handleLogin} loading={loading} />
+        </View>
 
-      <Link href="/(auth)/register" style={styles.link}>
-        <Text>No account? Register</Text>
-      </Link>
+        <Link href="/(auth)/register" style={{ alignSelf: "center", marginTop: theme.spacing.lg }}>
+          <Text style={{ color: theme.colors.primary, fontWeight: "600" }}>No account? Register</Text>
+        </Link>
+      </View>
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", padding: 24, gap: 12 },
-  title: { fontSize: 32, fontWeight: "800", textAlign: "center" },
-  subtitle: { textAlign: "center", color: "#64748b", marginBottom: 16 },
-  input: {
-    borderWidth: 1,
-    borderColor: "#cbd5e1",
-    borderRadius: 10,
-    padding: 12,
-  },
-  button: {
-    backgroundColor: "#0f172a",
-    borderRadius: 10,
-    padding: 14,
-    alignItems: "center",
-    marginTop: 8,
-  },
-  buttonText: { color: "white", fontWeight: "700" },
-  error: { color: "#dc2626" },
-  link: { alignSelf: "center", marginTop: 16 },
-});

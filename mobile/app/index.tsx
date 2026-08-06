@@ -2,6 +2,7 @@ import { Redirect } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
 
 import { useAuthStore } from "@/stores/authStore";
+import { useTheme } from "@/theme";
 
 const ROLE_HOME: Record<string, string> = {
   customer: "/(customer)/catalog",
@@ -11,14 +12,22 @@ const ROLE_HOME: Record<string, string> = {
 };
 
 export default function Index() {
+  const theme = useTheme();
   const hasHydrated = useAuthStore((s) => s.hasHydrated);
   const token = useAuthStore((s) => s.token);
   const role = useAuthStore((s) => s.role);
 
   if (!hasHydrated) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator />
+      <View
+        style={{
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: theme.colors.background,
+        }}
+      >
+        <ActivityIndicator color={theme.colors.primary} />
       </View>
     );
   }
