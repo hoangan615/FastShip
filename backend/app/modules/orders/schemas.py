@@ -48,6 +48,10 @@ class OrderOut(BaseModel):
     pickup_addr: dict
     dropoff_addr: dict
     subtotal: Decimal
+    shipping_fee: Decimal
+    commission_rate: Decimal
+    merchant_payout: Decimal
+    shipper_payout: Decimal
     cod_amount: Decimal | None
     sla_deadline: datetime | None
     created_at: datetime
@@ -81,5 +85,16 @@ class MerchantRevenueReport(BaseModel):
     total_orders: int
     completed_orders: int
     total_revenue: Decimal
+    commission_rate: Decimal
     pending_payout: Decimal
     released_payout: Decimal
+
+
+class OrderQuoteRequest(BaseModel):
+    pickup_addr: Address
+    dropoff_addr: Address
+
+
+class OrderQuoteOut(BaseModel):
+    shipping_fee: Decimal
+    distance_km: float

@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from app.core.enums import OrderStatus, PaymentStatus
 
@@ -41,3 +41,28 @@ class SummaryReport(BaseModel):
     active_orders: int
     total_revenue: Decimal
     disputed_payments: int
+
+
+class PlatformSettingsOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    shipping_base_fee: Decimal
+    shipping_per_km_rate: Decimal
+
+
+class PlatformSettingsUpdate(BaseModel):
+    shipping_base_fee: Decimal | None = None
+    shipping_per_km_rate: Decimal | None = None
+
+
+class MerchantAdminOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+    status: str
+    commission_rate: Decimal
+
+
+class CommissionUpdate(BaseModel):
+    commission_rate: Decimal

@@ -10,9 +10,13 @@ from app.db.redis import get_redis
 from app.db.session import get_db
 from app.modules.ops import service
 from app.modules.ops.schemas import (
+    CommissionUpdate,
     ComplaintOut,
     HeatmapCell,
     LiveOrderOut,
+    MerchantAdminOut,
+    PlatformSettingsOut,
+    PlatformSettingsUpdate,
     ResolvePaymentRequest,
     SummaryReport,
 )
@@ -52,3 +56,27 @@ async def resolve_payment(
 @router.get("/reports/summary", response_model=SummaryReport)
 async def reports_summary(db: AsyncSession = Depends(get_db)):
     return await service.summary_report(db)
+
+
+@router.get("/settings", response_model=PlatformSettingsOut)
+async def get_settings(db: AsyncSession = Depends(get_db)):
+    return await service.get_platform_settings(db)
+
+
+@router.patch("/settings", response_model=PlatformSettingsOut)
+async def update_settings(payload: PlatformSettingsUpdate, db: AsyncSession = Depends(get_db)):
+    return await service.update_platform_settings(
+        db, payload.shipping_base_fee, payload.shipping_per_km_rate
+    )
+
+
+@router.get("/merchants", response_model=list[MerchantAdminOut])
+async def list_merchants(db: AsyncSession = Depends(get_db)):
+    return await service.list_merchants_admin(db)
+
+
+@router.patch("/merchants/{merchant_id}/commission", response_model=MerchantAdminOut)
+async def update_merchant_commission(
+    merchant_id: uuid.UUID, payload: CommissionUpdate, db: AsyncSession = Depends(get_db)
+):
+    return await service.update_merchant_commission(db, merchant_id, payload.commission_rate)

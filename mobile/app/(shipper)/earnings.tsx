@@ -5,27 +5,29 @@ import * as api from "@/api/endpoints";
 import { Card, EmptyState, Screen } from "@/components/ui";
 import { useTheme } from "@/theme";
 
-export default function RevenueScreen() {
+export default function EarningsScreen() {
   const theme = useTheme();
   const { data, isLoading, refetch, isRefetching } = useQuery({
-    queryKey: ["orders", "merchant", "revenue"],
-    queryFn: api.getMerchantRevenue,
+    queryKey: ["shippers", "me", "revenue"],
+    queryFn: api.getShipperRevenue,
     refetchInterval: 15_000,
   });
 
   if (isLoading || !data) {
     return (
       <Screen center>
-        <EmptyState icon="stats-chart-outline" title="Loading..." loading />
+        <EmptyState icon="cash-outline" title="Loading..." loading />
       </Screen>
     );
   }
+
+  const total = Number(data.released_payout) + Number(data.pending_payout);
 
   return (
     <Screen scroll refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}>
       <Card>
         <Text style={[theme.typography.title, { color: theme.colors.text, textAlign: "center" }]}>
-          {Number(data.total_revenue).toLocaleString()} VND
+          {total.toLocaleString()} VND
         </Text>
         <Text
           style={[
@@ -33,28 +35,23 @@ export default function RevenueScreen() {
             { color: theme.colors.textMuted, textAlign: "center", marginTop: 4 },
           ]}
         >
-          Gross product revenue (completed orders)
+          Total earned from delivery fees
         </Text>
       </Card>
 
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "center",
-          gap: 6,
-          alignItems: "center",
-        }}
-      >
-        <Text style={{ color: theme.colors.textMuted, fontSize: 13 }}>Platform commission:</Text>
-        <Text style={[theme.typography.bodyStrong, { color: theme.colors.text, fontSize: 13 }]}>
-          {(Number(data.commission_rate) * 100).toFixed(0)}%
+      <Card>
+        <Text style={[theme.typography.heading, { color: theme.colors.text, textAlign: "center" }]}>
+          {data.total_deliveries}
         </Text>
-      </View>
-
-      <View style={{ flexDirection: "row", gap: theme.spacing.sm }}>
-        <Stat label="Total orders" value={data.total_orders} />
-        <Stat label="Completed" value={data.completed_orders} />
-      </View>
+        <Text
+          style={[
+            theme.typography.caption,
+            { color: theme.colors.textMuted, textAlign: "center", marginTop: 4 },
+          ]}
+        >
+          Completed deliveries
+        </Text>
+      </Card>
 
       <View style={{ flexDirection: "row", gap: theme.spacing.sm }}>
         <View style={{ flex: 1 }}>
@@ -68,7 +65,7 @@ export default function RevenueScreen() {
                 { color: theme.colors.textMuted, textAlign: "center", marginTop: 4 },
               ]}
             >
-              Released to you (net of commission)
+              Released to you
             </Text>
           </Card>
         </View>
@@ -89,26 +86,5 @@ export default function RevenueScreen() {
         </View>
       </View>
     </Screen>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
-  const theme = useTheme();
-  return (
-    <View style={{ flex: 1 }}>
-      <Card>
-        <Text style={[theme.typography.heading, { color: theme.colors.text, textAlign: "center" }]}>
-          {value}
-        </Text>
-        <Text
-          style={[
-            theme.typography.caption,
-            { color: theme.colors.textMuted, textAlign: "center", marginTop: 4 },
-          ]}
-        >
-          {label}
-        </Text>
-      </Card>
-    </View>
   );
 }

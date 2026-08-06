@@ -7,12 +7,17 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.enums import OrderStatus, PaymentStatus
+from app.core.exceptions import NotFoundError
+from app.modules.catalog.models import Merchant
 from app.modules.matching.engine import find_and_offer
 from app.modules.matching.redis_keys import SHIPPERS_GEO_KEY, match_excluded_key
+from app.modules.ops.models import PlatformSettings
 from app.modules.orders.models import Order
 from app.modules.payments import service as payments_service
 from app.modules.payments.models import Payment
 from app.modules.shippers.models import Shipper
+
+PLATFORM_SETTINGS_ID = 1
 
 TERMINAL_STATUSES = (
     OrderStatus.completed,
@@ -138,3 +143,46 @@ async def summary_report(db: AsyncSession) -> dict:
         "total_revenue": total_revenue,
         "disputed_payments": disputed_payments,
     }
+
+
+async def get_platform_settings(db: AsyncSession) -> PlatformSettings:
+    """Lazily creates the singleton settings row (id=1) with its column
+    defaults on first access, so no separate data migration/seed is needed.
+    """
+    settings = await db.get(PlatformSettings, PLATFORM_SETTINGS_ID)
+    if settings is None:
+        settings = PlatformSettings(id=PLATFORM_SETTINGS_ID)
+        db.add(settings)
+        await db.commit()
+        await db.refresh(settings)
+    return settings
+
+
+async def update_platform_settings(
+    db: AsyncSession, base_fee: Decimal | None, per_km_rate: Decimal | None
+) -> PlatformSettings:
+    settings = await get_platform_settings(db)
+    if base_fee is not None:
+        settings.shipping_base_fee = base_fee
+    if per_km_rate is not None:
+        settings.shipping_per_km_rate = per_km_rate
+    await db.commit()
+    await db.refresh(settings)
+    return settings
+
+
+async def list_merchants_admin(db: AsyncSession) -> list[Merchant]:
+    result = await db.scalars(select(Merchant).order_by(Merchant.name))
+    return list(result.all())
+
+
+async def update_merchant_commission(
+    db: AsyncSession, merchant_id: uuid.UUID, commission_rate: Decimal
+) -> Merchant:
+    merchant = await db.get(Merchant, merchant_id)
+    if merchant is None:
+        raise NotFoundError("Merchant not found")
+    merchant.commission_rate = commission_rate
+    await db.commit()
+    await db.refresh(merchant)
+    return merchant

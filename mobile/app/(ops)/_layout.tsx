@@ -32,6 +32,10 @@ export default function OpsLayout() {
         name="complaints"
         options={{ title: "Complaints", tabBarIcon: tabIcon("alert-circle", "alert-circle-outline") }}
       />
+      <Tabs.Screen
+        name="settings"
+        options={{ title: "Settings", tabBarIcon: tabIcon("settings", "settings-outline") }}
+      />
     </Tabs>
   );
 }

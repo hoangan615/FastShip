@@ -63,6 +63,10 @@ export interface Order {
   pickup_addr: Address;
   dropoff_addr: Address;
   subtotal: string;
+  shipping_fee: string;
+  commission_rate: string;
+  merchant_payout: string;
+  shipper_payout: string;
   cod_amount: string | null;
   sla_deadline: string | null;
   created_at: string;
@@ -106,8 +110,32 @@ export interface MerchantRevenueReport {
   total_orders: number;
   completed_orders: number;
   total_revenue: string;
+  commission_rate: string;
   pending_payout: string;
   released_payout: string;
+}
+
+export interface ShipperRevenueReport {
+  total_deliveries: number;
+  pending_payout: string;
+  released_payout: string;
+}
+
+export interface OrderQuote {
+  shipping_fee: string;
+  distance_km: number;
+}
+
+export interface PlatformSettings {
+  shipping_base_fee: string;
+  shipping_per_km_rate: string;
+}
+
+export interface MerchantAdmin {
+  id: string;
+  name: string;
+  status: string;
+  commission_rate: string;
 }
 
 export interface HeatmapCell {

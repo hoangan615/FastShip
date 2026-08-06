@@ -21,6 +21,8 @@ from app.modules.orders.schemas import (
     OrderCreate,
     OrderEventOut,
     OrderOut,
+    OrderQuoteOut,
+    OrderQuoteRequest,
     RejectRequest,
 )
 from app.modules.ratings import service as ratings_service
@@ -38,6 +40,18 @@ async def create_order(
 ):
     customer = await get_customer_for_user(db, user.id)
     return await service.create_order(db, customer.id, payload)
+
+
+@router.post("/quote", response_model=OrderQuoteOut)
+async def quote_order(
+    payload: OrderQuoteRequest,
+    user: User = Depends(require_role(UserRole.customer)),
+    db: AsyncSession = Depends(get_db),
+):
+    shipping_fee, distance_km = await service.compute_shipping_fee(
+        db, payload.pickup_addr, payload.dropoff_addr
+    )
+    return {"shipping_fee": shipping_fee, "distance_km": distance_km}
 
 
 @router.get("/{order_id}", response_model=OrderOut)

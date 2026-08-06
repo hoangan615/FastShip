@@ -25,6 +25,10 @@ export default function ShipperLayout() {
         name="active-order"
         options={{ title: "Active order", tabBarIcon: tabIcon("navigate", "navigate-outline") }}
       />
+      <Tabs.Screen
+        name="earnings"
+        options={{ title: "Earnings", tabBarIcon: tabIcon("cash", "cash-outline") }}
+      />
     </Tabs>
   );
 }

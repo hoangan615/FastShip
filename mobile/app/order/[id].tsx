@@ -144,10 +144,50 @@ export default function OrderDetailScreen() {
           Dropoff
         </Text>
         <Text style={{ color: theme.colors.text }}>{order.dropoff_addr.address}</Text>
-        <Text style={[theme.typography.small, { color: theme.colors.textMuted, marginTop: theme.spacing.xs }]}>
-          Subtotal
-        </Text>
-        <Text style={{ color: theme.colors.text }}>{order.subtotal} VND</Text>
+      </Card>
+
+      <Card style={{ gap: 4 }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+          <Text style={{ color: theme.colors.textMuted }}>Subtotal</Text>
+          <Text style={{ color: theme.colors.text }}>{Number(order.subtotal).toLocaleString()} VND</Text>
+        </View>
+        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+          <Text style={{ color: theme.colors.textMuted }}>Delivery fee</Text>
+          <Text style={{ color: theme.colors.text }}>{Number(order.shipping_fee).toLocaleString()} VND</Text>
+        </View>
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            marginTop: 4,
+            paddingTop: theme.spacing.xs,
+            borderTopWidth: 1,
+            borderTopColor: theme.colors.border,
+          }}
+        >
+          <Text style={[theme.typography.bodyStrong, { color: theme.colors.text }]}>Total</Text>
+          <Text style={[theme.typography.bodyStrong, { color: theme.colors.text }]}>
+            {(Number(order.subtotal) + Number(order.shipping_fee)).toLocaleString()} VND
+          </Text>
+        </View>
+        {role === "merchant" && (
+          <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 4 }}>
+            <Text style={{ color: theme.colors.textMuted }}>
+              You receive ({(Number(order.commission_rate) * 100).toFixed(0)}% commission)
+            </Text>
+            <Text style={{ color: theme.colors.successFg, fontWeight: "600" }}>
+              {Number(order.merchant_payout).toLocaleString()} VND
+            </Text>
+          </View>
+        )}
+        {role === "shipper" && (
+          <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 4 }}>
+            <Text style={{ color: theme.colors.textMuted }}>You receive</Text>
+            <Text style={{ color: theme.colors.successFg, fontWeight: "600" }}>
+              {Number(order.shipper_payout).toLocaleString()} VND
+            </Text>
+          </View>
+        )}
       </Card>
 
       {shipperLocation && (

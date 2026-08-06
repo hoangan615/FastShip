@@ -68,13 +68,14 @@ async def test_create_order_snapshots_price_independent_of_later_changes(db: Asy
         ),
     )
     assert float(order.subtotal) == 20000
+    expected_total = float(order.subtotal) + float(order.shipping_fee)
 
     # merchant changes the price after the order was placed
     product.price = 99999
     await db.commit()
 
     payment = await payments_service.get_payment_for_order(db, order.id)
-    assert float(payment.amount) == 20000
+    assert float(payment.amount) == expected_total
     assert payment.status == PaymentStatus.held
 
 

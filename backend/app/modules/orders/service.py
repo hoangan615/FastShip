@@ -10,11 +10,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.core.enums import OrderEventType, OrderSource, OrderStatus, PaymentStatus, ShipperStatus
 from app.core.exceptions import NotFoundError, PermissionDeniedError
+from app.core.geo import haversine_km
 from app.modules.catalog import service as catalog_service
+from app.modules.catalog.models import Merchant
 from app.modules.matching import engine as matching_engine
 from app.modules.notifications.service import send_notification
+from app.modules.ops.service import get_platform_settings
 from app.modules.orders.models import Order, OrderEvent, OrderItem
-from app.modules.orders.schemas import OrderCreate
+from app.modules.orders.schemas import Address, OrderCreate
 from app.modules.orders.state_machine import OrderTransitionEvent, apply_transition
 from app.modules.payments import service as payments_service
 from app.modules.payments.models import Payment
@@ -22,6 +25,18 @@ from app.modules.shippers.models import Shipper
 from app.modules.tracking.ws_manager import broadcast_order_status
 
 settings = get_settings()
+
+
+async def compute_shipping_fee(db: AsyncSession, pickup: Address, dropoff: Address) -> tuple[Decimal, float]:
+    """Returns (shipping_fee, distance_km) for a pickup/dropoff pair, using the
+    ops-configurable base fee + per-km rate (app.modules.ops.models.PlatformSettings).
+    """
+    platform_settings = await get_platform_settings(db)
+    distance_km = haversine_km(pickup.lat, pickup.lng, dropoff.lat, dropoff.lng)
+    fee = Decimal(str(platform_settings.shipping_base_fee)) + Decimal(
+        str(platform_settings.shipping_per_km_rate)
+    ) * Decimal(str(round(distance_km, 3)))
+    return fee.quantize(Decimal("1")), distance_km
 
 
 async def get_order(db: AsyncSession, order_id: uuid.UUID) -> Order:
@@ -39,6 +54,10 @@ async def list_order_events(db: AsyncSession, order_id: uuid.UUID) -> list[Order
 
 
 async def create_order(db: AsyncSession, customer_id: uuid.UUID, payload: OrderCreate) -> Order:
+    merchant = await db.get(Merchant, payload.merchant_id)
+    if merchant is None:
+        raise NotFoundError("Merchant not found")
+
     subtotal = 0
     items: list[OrderItem] = []
     for line in payload.items:
@@ -50,6 +69,13 @@ async def create_order(db: AsyncSession, customer_id: uuid.UUID, payload: OrderC
             OrderItem(product_id=product.id, qty=line.qty, price_at_order=product.price)
         )
 
+    shipping_fee, _distance_km = await compute_shipping_fee(
+        db, payload.pickup_addr, payload.dropoff_addr
+    )
+    commission_rate = Decimal(str(merchant.commission_rate))
+    merchant_payout = Decimal(str(subtotal)) * (Decimal("1") - commission_rate)
+    shipper_payout = shipping_fee
+
     now = datetime.now(timezone.utc)
     order = Order(
         source=OrderSource.customer_placed,
@@ -59,6 +85,10 @@ async def create_order(db: AsyncSession, customer_id: uuid.UUID, payload: OrderC
         pickup_addr=payload.pickup_addr.model_dump(),
         dropoff_addr=payload.dropoff_addr.model_dump(),
         subtotal=subtotal,
+        shipping_fee=shipping_fee,
+        commission_rate=commission_rate,
+        merchant_payout=merchant_payout,
+        shipper_payout=shipper_payout,
         cod_amount=payload.cod_amount,
         sla_deadline=now + timedelta(minutes=settings.sla_minutes),
     )
@@ -80,7 +110,8 @@ async def create_order(db: AsyncSession, customer_id: uuid.UUID, payload: OrderC
         )
     )
 
-    await payments_service.create_and_charge(db, order.id, payload.payment_method, subtotal)
+    total_charge = Decimal(str(subtotal)) + shipping_fee
+    await payments_service.create_and_charge(db, order.id, payload.payment_method, total_charge)
     await db.commit()
     await db.refresh(order)
 
@@ -277,18 +308,21 @@ async def get_merchant_revenue(db: AsyncSession, merchant_id: uuid.UUID) -> dict
         )
         or Decimal(0)
     )
+    # merchant_payout is the merchant's own net share (subtotal minus platform
+    # commission, snapshotted per order) — NOT the full escrowed Payment.amount,
+    # which also includes the shipper's cut of the shipping fee.
     pending_payout = (
         await db.scalar(
-            select(func.coalesce(func.sum(Payment.amount), 0))
-            .join(Order, Order.id == Payment.order_id)
+            select(func.coalesce(func.sum(Order.merchant_payout), 0))
+            .join(Payment, Order.id == Payment.order_id)
             .where(Order.merchant_id == merchant_id, Payment.status == PaymentStatus.held)
         )
         or Decimal(0)
     )
     released_payout = (
         await db.scalar(
-            select(func.coalesce(func.sum(Payment.amount), 0))
-            .join(Order, Order.id == Payment.order_id)
+            select(func.coalesce(func.sum(Order.merchant_payout), 0))
+            .join(Payment, Order.id == Payment.order_id)
             .where(
                 Order.merchant_id == merchant_id,
                 Payment.status == PaymentStatus.released_to_merchant,
@@ -296,10 +330,48 @@ async def get_merchant_revenue(db: AsyncSession, merchant_id: uuid.UUID) -> dict
         )
         or Decimal(0)
     )
+    merchant = await db.get(Merchant, merchant_id)
+    commission_rate = Decimal(str(merchant.commission_rate)) if merchant else Decimal(0)
     return {
         "total_orders": total_orders,
         "completed_orders": completed_orders,
         "total_revenue": total_revenue,
+        "commission_rate": commission_rate,
+        "pending_payout": pending_payout,
+        "released_payout": released_payout,
+    }
+
+
+async def get_shipper_revenue(db: AsyncSession, shipper_id: uuid.UUID) -> dict:
+    total_deliveries = (
+        await db.scalar(
+            select(func.count())
+            .select_from(Order)
+            .where(Order.shipper_id == shipper_id, Order.status == OrderStatus.completed)
+        )
+        or 0
+    )
+    pending_payout = (
+        await db.scalar(
+            select(func.coalesce(func.sum(Order.shipper_payout), 0))
+            .join(Payment, Order.id == Payment.order_id)
+            .where(Order.shipper_id == shipper_id, Payment.status == PaymentStatus.held)
+        )
+        or Decimal(0)
+    )
+    released_payout = (
+        await db.scalar(
+            select(func.coalesce(func.sum(Order.shipper_payout), 0))
+            .join(Payment, Order.id == Payment.order_id)
+            .where(
+                Order.shipper_id == shipper_id,
+                Payment.status == PaymentStatus.released_to_merchant,
+            )
+        )
+        or Decimal(0)
+    )
+    return {
+        "total_deliveries": total_deliveries,
         "pending_payout": pending_payout,
         "released_payout": released_payout,
     }

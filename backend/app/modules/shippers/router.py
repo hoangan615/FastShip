@@ -7,8 +7,9 @@ from app.core.enums import UserRole
 from app.db.redis import get_redis
 from app.db.session import get_db
 from app.modules.auth.models import User
+from app.modules.orders.service import get_shipper_revenue
 from app.modules.shippers import service
-from app.modules.shippers.schemas import LocationPing, ShipperOut, StatusUpdate
+from app.modules.shippers.schemas import LocationPing, ShipperOut, ShipperRevenueReport, StatusUpdate
 
 router = APIRouter(prefix="/shippers", tags=["shippers"])
 
@@ -19,6 +20,15 @@ async def get_me(
     db: AsyncSession = Depends(get_db),
 ):
     return await service.get_shipper_for_user(db, user.id)
+
+
+@router.get("/me/revenue", response_model=ShipperRevenueReport)
+async def get_my_revenue(
+    user: User = Depends(require_role(UserRole.shipper)),
+    db: AsyncSession = Depends(get_db),
+):
+    shipper = await service.get_shipper_for_user(db, user.id)
+    return await get_shipper_revenue(db, shipper.id)
 
 
 @router.post("/me/status", response_model=ShipperOut)

@@ -25,3 +25,9 @@ class StatusUpdate(BaseModel):
 class LocationPing(BaseModel):
     lat: float
     lng: float
+
+
+class ShipperRevenueReport(BaseModel):
+    total_deliveries: int
+    pending_payout: Decimal
+    released_payout: Decimal

@@ -4,12 +4,16 @@ import type {
   HeatmapCell,
   LiveOrder,
   Merchant,
+  MerchantAdmin,
   MerchantRevenueReport,
   Order,
+  OrderQuote,
+  PlatformSettings,
   Product,
   Rating,
   SavedAddress,
   ShipperProfile,
+  ShipperRevenueReport,
   SummaryReport,
   TokenResponse,
   UserRole,
@@ -105,6 +109,11 @@ export async function createOrder(payload: {
   payment_method: string;
 }): Promise<Order> {
   const { data } = await apiClient.post("/orders", payload);
+  return data;
+}
+
+export async function quoteShippingFee(pickup_addr: Address, dropoff_addr: Address): Promise<OrderQuote> {
+  const { data } = await apiClient.post("/orders/quote", { pickup_addr, dropoff_addr });
   return data;
 }
 
@@ -209,6 +218,11 @@ export async function pingShipperLocation(lat: number, lng: number): Promise<Shi
   return data;
 }
 
+export async function getShipperRevenue(): Promise<ShipperRevenueReport> {
+  const { data } = await apiClient.get("/shippers/me/revenue");
+  return data;
+}
+
 // --- matching ----------------------------------------------------------------
 
 export async function acceptOffer(orderId: string): Promise<void> {
@@ -247,5 +261,31 @@ export async function opsResolvePayment(paymentId: string, release: boolean): Pr
 
 export async function opsReassignOrder(orderId: string): Promise<{ order_id: string; offered_to_shipper_id: string | null }> {
   const { data } = await apiClient.post(`/ops/orders/${orderId}/reassign`);
+  return data;
+}
+
+export async function opsGetSettings(): Promise<PlatformSettings> {
+  const { data } = await apiClient.get("/ops/settings");
+  return data;
+}
+
+export async function opsUpdateSettings(payload: {
+  shipping_base_fee?: number;
+  shipping_per_km_rate?: number;
+}): Promise<PlatformSettings> {
+  const { data } = await apiClient.patch("/ops/settings", payload);
+  return data;
+}
+
+export async function opsListMerchants(): Promise<MerchantAdmin[]> {
+  const { data } = await apiClient.get("/ops/merchants");
+  return data;
+}
+
+export async function opsUpdateMerchantCommission(
+  merchantId: string,
+  commission_rate: number
+): Promise<MerchantAdmin> {
+  const { data } = await apiClient.patch(`/ops/merchants/${merchantId}/commission`, { commission_rate });
   return data;
 }

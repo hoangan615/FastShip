@@ -24,6 +24,9 @@ async def _seed_merchant_customer(db: AsyncSession):
 async def _seed_order(
     db: AsyncSession, customer, merchant, status: OrderStatus, subtotal: float, payment_status: PaymentStatus
 ):
+    # commission_rate=0 here so merchant_payout == subtotal, keeping these
+    # tests' pre-existing 1:1 assertions valid — commission math has its own
+    # dedicated coverage in test_order_pricing.py.
     order = Order(
         source=OrderSource.customer_placed,
         customer_id=customer.id,
@@ -32,6 +35,8 @@ async def _seed_order(
         pickup_addr={"lat": 0, "lng": 0, "address": "a"},
         dropoff_addr={"lat": 0, "lng": 0, "address": "b"},
         subtotal=subtotal,
+        commission_rate=0,
+        merchant_payout=subtotal,
     )
     db.add(order)
     await db.flush()

@@ -18,6 +18,8 @@ class Merchant(UUIDPKMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(255))
     address: Mapped[str] = mapped_column(String(500))
     status: Mapped[str] = mapped_column(String(32), default="active")
+    # Platform commission on this merchant's product revenue (0.10 = 10%), ops-adjustable.
+    commission_rate: Mapped[float] = mapped_column(Numeric(5, 4), default=0.10)
 
 
 class Product(UUIDPKMixin, TimestampMixin, Base):

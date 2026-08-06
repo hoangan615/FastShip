@@ -13,6 +13,7 @@ const METHODS: PaymentMethod[] = ["wallet", "card", "cod"];
 // demo coordinates around central HCMC — a real app would geocode a
 // manually-typed address; saved addresses already carry real coordinates.
 const CUSTOM_DROPOFF_COORDS = { lat: 10.7829, lng: 106.6997 };
+const PICKUP = { address: "Merchant pickup point", lat: 10.7769, lng: 106.7009 };
 
 export default function CheckoutScreen() {
   const theme = useTheme();
@@ -30,21 +31,28 @@ export default function CheckoutScreen() {
     queryFn: api.listMyAddresses,
   });
 
-  const total = lines.reduce((sum, l) => sum + Number(l.product.price) * l.qty, 0);
+  const dropoff = selectedAddress
+    ? { address: selectedAddress.address, lat: selectedAddress.lat, lng: selectedAddress.lng }
+    : { address: customAddress, ...CUSTOM_DROPOFF_COORDS };
+
+  const { data: quote, isLoading: quoteLoading } = useQuery({
+    queryKey: ["orders", "quote", dropoff.lat, dropoff.lng],
+    queryFn: () => api.quoteShippingFee(PICKUP, dropoff),
+  });
+
+  const subtotal = lines.reduce((sum, l) => sum + Number(l.product.price) * l.qty, 0);
+  const shippingFee = quote ? Number(quote.shipping_fee) : 0;
+  const grandTotal = subtotal + shippingFee;
 
   async function handlePlaceOrder() {
     if (!cart.merchantId || lines.length === 0) return;
     setSubmitting(true);
     setError(null);
     try {
-      const dropoff = selectedAddress
-        ? { address: selectedAddress.address, lat: selectedAddress.lat, lng: selectedAddress.lng }
-        : { address: customAddress, ...CUSTOM_DROPOFF_COORDS };
-
       const order = await api.createOrder({
         merchant_id: cart.merchantId,
         items: lines.map((l) => ({ product_id: l.product.id, qty: l.qty })),
-        pickup_addr: { address: "Merchant pickup point", lat: 10.7769, lng: 106.7009 },
+        pickup_addr: PICKUP,
         dropoff_addr: dropoff,
         payment_method: method,
       });
@@ -62,10 +70,10 @@ export default function CheckoutScreen() {
       scroll
       stickyBottom={
         <Button
-          label="Place order"
+          label={`Place order · ${grandTotal.toLocaleString()} VND`}
           onPress={handlePlaceOrder}
           loading={submitting}
-          disabled={lines.length === 0}
+          disabled={lines.length === 0 || quoteLoading}
         />
       }
     >
@@ -75,20 +83,36 @@ export default function CheckoutScreen() {
           <Text style={{ color: theme.colors.text }}>
             {l.qty}x {l.product.name}
           </Text>
-          <Text style={{ color: theme.colors.text }}>{Number(l.product.price) * l.qty} VND</Text>
+          <Text style={{ color: theme.colors.text }}>{(Number(l.product.price) * l.qty).toLocaleString()} VND</Text>
         </View>
       ))}
+
       <View
         style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
+          gap: 4,
           borderTopWidth: 1,
           borderTopColor: theme.colors.border,
           paddingTop: theme.spacing.sm,
         }}
       >
-        <Text style={[theme.typography.bodyStrong, { color: theme.colors.text }]}>Total</Text>
-        <Text style={[theme.typography.bodyStrong, { color: theme.colors.text }]}>{total} VND</Text>
+        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+          <Text style={{ color: theme.colors.textMuted }}>Subtotal</Text>
+          <Text style={{ color: theme.colors.text }}>{subtotal.toLocaleString()} VND</Text>
+        </View>
+        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+          <Text style={{ color: theme.colors.textMuted }}>
+            Delivery fee{quote ? ` (${quote.distance_km.toFixed(1)} km)` : ""}
+          </Text>
+          <Text style={{ color: theme.colors.text }}>
+            {quoteLoading ? "…" : `${shippingFee.toLocaleString()} VND`}
+          </Text>
+        </View>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 4 }}>
+          <Text style={[theme.typography.bodyStrong, { color: theme.colors.text }]}>Total</Text>
+          <Text style={[theme.typography.bodyStrong, { color: theme.colors.text }]}>
+            {grandTotal.toLocaleString()} VND
+          </Text>
+        </View>
       </View>
 
       <Text style={[theme.typography.bodyStrong, { color: theme.colors.text, marginTop: theme.spacing.sm }]}>

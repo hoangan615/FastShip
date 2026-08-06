@@ -32,6 +32,16 @@ class Order(UUIDPKMixin, TimestampMixin, Base):
     subtotal: Mapped[float] = mapped_column(Numeric(12, 2))
     cod_amount: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
 
+    # Delivery fee (distance-based, see app.core.geo + PlatformSettings) charged to the
+    # customer on top of subtotal. commission_rate/merchant_payout/shipper_payout are
+    # snapshotted at order-creation time from the merchant's current commission_rate and
+    # the platform's shipping-fee settings, so a later rate change never retroactively
+    # changes an already-placed order's numbers.
+    shipping_fee: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    commission_rate: Mapped[float] = mapped_column(Numeric(5, 4), default=0)
+    merchant_payout: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    shipper_payout: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+
     sla_deadline: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     assigned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
