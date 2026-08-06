@@ -151,7 +151,13 @@ function ProductRow({ product }: { product: Product }) {
         <Text style={[theme.typography.bodyStrong, { color: theme.colors.text, minWidth: 20, textAlign: "center" }]}>
           {qty}
         </Text>
-        <IconButton name="add" variant="filled" size={16} onPress={() => cart.addOne(product)} />
+        <IconButton
+          name="add"
+          variant="filled"
+          size={16}
+          testID={`qty-add-${product.id}`}
+          onPress={() => cart.addOne(product)}
+        />
       </View>
     </View>
   );

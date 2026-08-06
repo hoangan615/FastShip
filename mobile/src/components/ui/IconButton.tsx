@@ -11,6 +11,7 @@ export function IconButton({
   variant = "plain",
   disabled = false,
   style,
+  testID,
 }: {
   name: keyof typeof Ionicons.glyphMap;
   onPress: () => void;
@@ -19,6 +20,7 @@ export function IconButton({
   variant?: "plain" | "filled";
   disabled?: boolean;
   style?: ViewStyle;
+  testID?: string;
 }) {
   const theme = useTheme();
   const fg = color ?? theme.colors.text;
@@ -28,6 +30,7 @@ export function IconButton({
       onPress={onPress}
       disabled={disabled}
       hitSlop={12}
+      testID={testID}
       style={({ pressed }) => [
         {
           width: 40,

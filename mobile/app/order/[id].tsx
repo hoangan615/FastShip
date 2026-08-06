@@ -214,7 +214,7 @@ function RatingSection({ orderId }: { orderId: string }) {
       <Text style={[theme.typography.small, { color: theme.colors.textMuted }]}>Rate your delivery</Text>
       <View style={{ flexDirection: "row", gap: 4 }}>
         {[1, 2, 3, 4, 5].map((n) => (
-          <Pressable key={n} onPress={() => setScore(n)} hitSlop={6}>
+          <Pressable key={n} onPress={() => setScore(n)} hitSlop={6} testID={`star-${n}`}>
             <Ionicons
               name={n <= score ? "star" : "star-outline"}
               size={32}
