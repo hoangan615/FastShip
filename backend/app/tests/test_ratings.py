@@ -115,3 +115,58 @@ async def test_score_out_of_range_rejected_by_schema():
         RatingCreate(score=6)
     with pytest.raises(Exception):
         RatingCreate(score=0)
+
+
+async def test_rating_without_merchant_score_leaves_merchant_rating_untouched(db: AsyncSession):
+    customer, shipper, order = await _seed(db, OrderStatus.completed)
+    merchant = await db.get(Merchant, order.merchant_id)
+    default_rating = float(merchant.rating)
+
+    rating = await ratings_service.create_rating(
+        db, customer.id, order.id, RatingCreate(score=5)
+    )
+
+    assert rating.merchant_id == order.merchant_id
+    assert rating.merchant_score is None
+    await db.refresh(merchant)
+    assert float(merchant.rating) == default_rating
+
+
+async def test_merchant_rating_is_set_from_first_merchant_score(db: AsyncSession):
+    customer, shipper, order = await _seed(db, OrderStatus.completed)
+
+    rating = await ratings_service.create_rating(
+        db, customer.id, order.id, RatingCreate(score=5, merchant_score=4, merchant_comment="Ngon")
+    )
+
+    assert rating.merchant_score == 4
+    assert rating.merchant_comment == "Ngon"
+    merchant = await db.get(Merchant, order.merchant_id)
+    assert float(merchant.rating) == 4.0
+
+
+async def test_merchant_rating_is_the_average_across_orders(db: AsyncSession):
+    customer, shipper, order1 = await _seed(db, OrderStatus.completed)
+    await ratings_service.create_rating(
+        db, customer.id, order1.id, RatingCreate(score=5, merchant_score=5)
+    )
+
+    order2 = Order(
+        source=OrderSource.customer_placed,
+        customer_id=customer.id,
+        merchant_id=order1.merchant_id,
+        shipper_id=shipper.id,
+        status=OrderStatus.completed,
+        pickup_addr={"lat": 0, "lng": 0, "address": "a"},
+        dropoff_addr={"lat": 0, "lng": 0, "address": "b"},
+        subtotal=50,
+    )
+    db.add(order2)
+    await db.commit()
+
+    await ratings_service.create_rating(
+        db, customer.id, order2.id, RatingCreate(score=3, merchant_score=3)
+    )
+
+    merchant = await db.get(Merchant, order1.merchant_id)
+    assert float(merchant.rating) == 4.0  # avg(5, 3)

@@ -11,6 +11,7 @@ import type {
   PlatformSettings,
   Product,
   Rating,
+  Recommendations,
   SavedAddress,
   ShipperProfile,
   ShipperRevenueReport,
@@ -67,6 +68,11 @@ export async function listMerchants(): Promise<Merchant[]> {
 
 export async function listPublicProducts(merchantId: string): Promise<Product[]> {
   const { data } = await apiClient.get(`/catalog/merchants/${merchantId}/products`);
+  return data;
+}
+
+export async function getRecommendations(): Promise<Recommendations> {
+  const { data } = await apiClient.get("/catalog/recommendations");
   return data;
 }
 
@@ -180,9 +186,16 @@ export async function rejectAssignment(orderId: string, reason?: string): Promis
 export async function rateOrder(
   orderId: string,
   score: number,
-  comment?: string
+  comment?: string,
+  merchantScore?: number,
+  merchantComment?: string
 ): Promise<Rating> {
-  const { data } = await apiClient.post(`/orders/${orderId}/rating`, { score, comment });
+  const { data } = await apiClient.post(`/orders/${orderId}/rating`, {
+    score,
+    comment,
+    merchant_score: merchantScore,
+    merchant_comment: merchantComment,
+  });
   return data;
 }
 

@@ -21,3 +21,13 @@ class Rating(UUIDPKMixin, TimestampMixin, Base):
     )
     score: Mapped[int] = mapped_column(SmallInteger)
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Merchant side of the same one-rating-per-order flow. merchant_score is
+    # nullable (not every historical row has one, and the schema keeps it
+    # optional) but merchant_id is always set from order.merchant_id so
+    # aggregate queries never need to join back through orders.
+    merchant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("merchants.id"), index=True
+    )
+    merchant_score: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    merchant_comment: Mapped[str | None] = mapped_column(Text, nullable=True)

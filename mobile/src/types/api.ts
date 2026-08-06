@@ -27,6 +27,7 @@ export interface Merchant {
   name: string;
   address: string;
   status: string;
+  rating: string;
 }
 
 export interface Product {
@@ -103,7 +104,15 @@ export interface Rating {
   shipper_id: string;
   score: number;
   comment: string | null;
+  merchant_id: string;
+  merchant_score: number | null;
+  merchant_comment: string | null;
   created_at: string;
+}
+
+export interface Recommendations {
+  order_again: Product[];
+  recommended: Product[];
 }
 
 export interface MerchantRevenueReport {

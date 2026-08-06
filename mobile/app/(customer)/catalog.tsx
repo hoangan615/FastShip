@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import { FlatList, Pressable, Text, View } from "react-native";
 
 import * as api from "@/api/endpoints";
@@ -13,10 +13,21 @@ import type { Merchant, Product } from "@/types/api";
 export default function CatalogScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { merchantId } = useLocalSearchParams<{ merchantId?: string }>();
   const [selectedMerchant, setSelectedMerchant] = useState<Merchant | null>(null);
   const cart = useCartStore();
 
   const merchantsQuery = useQuery({ queryKey: ["merchants"], queryFn: api.listMerchants });
+
+  useEffect(() => {
+    if (!merchantId || selectedMerchant || !merchantsQuery.data) return;
+    const match = merchantsQuery.data.find((m) => m.id === merchantId);
+    if (match) {
+      setSelectedMerchant(match);
+      cart.setMerchant(match.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [merchantId, merchantsQuery.data]);
   const productsQuery = useQuery({
     queryKey: ["products", selectedMerchant?.id],
     queryFn: () => api.listPublicProducts(selectedMerchant!.id),
@@ -60,7 +71,15 @@ export default function CatalogScreen() {
                 cart.setMerchant(item.id);
               }}
             >
-              <Text style={[theme.typography.subheading, { color: theme.colors.text }]}>{item.name}</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                <Text style={[theme.typography.subheading, { color: theme.colors.text }]}>{item.name}</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+                  <Ionicons name="star" size={13} color={theme.colors.warning} />
+                  <Text style={[theme.typography.caption, { color: theme.colors.textMuted }]}>
+                    {Number(item.rating).toFixed(1)}
+                  </Text>
+                </View>
+              </View>
               <Text style={[theme.typography.caption, { color: theme.colors.textMuted, marginTop: 2 }]}>
                 {item.address}
               </Text>

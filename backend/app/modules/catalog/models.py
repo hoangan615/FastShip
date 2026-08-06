@@ -20,6 +20,8 @@ class Merchant(UUIDPKMixin, TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(32), default="active")
     # Platform commission on this merchant's product revenue (0.10 = 10%), ops-adjustable.
     commission_rate: Mapped[float] = mapped_column(Numeric(5, 4), default=0.10)
+    # Average of Rating.merchant_score across all orders that rated this merchant.
+    rating: Mapped[float] = mapped_column(Numeric(3, 2), default=5.0)
 
 
 class Product(UUIDPKMixin, TimestampMixin, Base):

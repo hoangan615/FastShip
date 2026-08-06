@@ -220,6 +220,7 @@ function RatingSection({ orderId }: { orderId: string }) {
   const theme = useTheme();
   const queryClient = useQueryClient();
   const [score, setScore] = useState(0);
+  const [merchantScore, setMerchantScore] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
   const { data: existingRating, isLoading } = useQuery({
@@ -228,10 +229,10 @@ function RatingSection({ orderId }: { orderId: string }) {
   });
 
   async function submit() {
-    if (score < 1) return;
+    if (score < 1 || merchantScore < 1) return;
     setSubmitting(true);
     try {
-      await api.rateOrder(orderId, score);
+      await api.rateOrder(orderId, score, undefined, merchantScore);
       queryClient.invalidateQueries({ queryKey: ["orders", orderId, "rating"] });
     } finally {
       setSubmitting(false);
@@ -242,29 +243,77 @@ function RatingSection({ orderId }: { orderId: string }) {
 
   if (existingRating) {
     return (
-      <Card style={{ gap: theme.spacing.xs }}>
-        <Text style={[theme.typography.small, { color: theme.colors.textMuted }]}>Your rating</Text>
-        <Stars score={existingRating.score} theme={theme} />
+      <Card style={{ gap: theme.spacing.sm }}>
+        <View style={{ gap: theme.spacing.xs }}>
+          <Text style={[theme.typography.small, { color: theme.colors.textMuted }]}>
+            Your rating — shipper
+          </Text>
+          <Stars score={existingRating.score} theme={theme} />
+        </View>
+        {existingRating.merchant_score != null && (
+          <View style={{ gap: theme.spacing.xs }}>
+            <Text style={[theme.typography.small, { color: theme.colors.textMuted }]}>
+              Your rating — merchant
+            </Text>
+            <Stars score={existingRating.merchant_score} theme={theme} />
+          </View>
+        )}
       </Card>
     );
   }
 
   return (
-    <Card style={{ gap: theme.spacing.sm }}>
-      <Text style={[theme.typography.small, { color: theme.colors.textMuted }]}>Rate your delivery</Text>
-      <View style={{ flexDirection: "row", gap: 4 }}>
-        {[1, 2, 3, 4, 5].map((n) => (
-          <Pressable key={n} onPress={() => setScore(n)} hitSlop={6} testID={`star-${n}`}>
-            <Ionicons
-              name={n <= score ? "star" : "star-outline"}
-              size={32}
-              color={n <= score ? theme.colors.warning : theme.colors.border}
-            />
-          </Pressable>
-        ))}
+    <Card style={{ gap: theme.spacing.md }}>
+      <View style={{ gap: theme.spacing.sm }}>
+        <Text style={[theme.typography.small, { color: theme.colors.textMuted }]}>
+          Rate the shipper
+        </Text>
+        <StarPicker value={score} onChange={setScore} theme={theme} testIDPrefix="star" />
       </View>
-      <Button label="Submit rating" onPress={submit} loading={submitting} disabled={score < 1} />
+      <View style={{ gap: theme.spacing.sm }}>
+        <Text style={[theme.typography.small, { color: theme.colors.textMuted }]}>
+          Rate the merchant
+        </Text>
+        <StarPicker
+          value={merchantScore}
+          onChange={setMerchantScore}
+          theme={theme}
+          testIDPrefix="merchant-star"
+        />
+      </View>
+      <Button
+        label="Submit rating"
+        onPress={submit}
+        loading={submitting}
+        disabled={score < 1 || merchantScore < 1}
+      />
     </Card>
+  );
+}
+
+function StarPicker({
+  value,
+  onChange,
+  theme,
+  testIDPrefix,
+}: {
+  value: number;
+  onChange: (n: number) => void;
+  theme: Theme;
+  testIDPrefix: string;
+}) {
+  return (
+    <View style={{ flexDirection: "row", gap: 4 }}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <Pressable key={n} onPress={() => onChange(n)} hitSlop={6} testID={`${testIDPrefix}-${n}`}>
+          <Ionicons
+            name={n <= value ? "star" : "star-outline"}
+            size={32}
+            color={n <= value ? theme.colors.warning : theme.colors.border}
+          />
+        </Pressable>
+      ))}
+    </View>
   );
 }
 

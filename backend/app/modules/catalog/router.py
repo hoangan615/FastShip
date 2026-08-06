@@ -7,8 +7,15 @@ from app.core.deps import require_role
 from app.core.enums import UserRole
 from app.db.session import get_db
 from app.modules.auth.models import User
+from app.modules.auth.service import get_customer_for_user
 from app.modules.catalog import service
-from app.modules.catalog.schemas import MerchantOut, ProductCreate, ProductOut, ProductUpdate
+from app.modules.catalog.schemas import (
+    MerchantOut,
+    ProductCreate,
+    ProductOut,
+    ProductUpdate,
+    RecommendationsOut,
+)
 
 router = APIRouter(prefix="/catalog", tags=["catalog"])
 
@@ -16,6 +23,15 @@ router = APIRouter(prefix="/catalog", tags=["catalog"])
 @router.get("/merchants", response_model=list[MerchantOut])
 async def list_merchants(db: AsyncSession = Depends(get_db)):
     return await service.list_merchants(db)
+
+
+@router.get("/recommendations", response_model=RecommendationsOut)
+async def get_recommendations(
+    user: User = Depends(require_role(UserRole.customer)),
+    db: AsyncSession = Depends(get_db),
+):
+    customer = await get_customer_for_user(db, user.id)
+    return await service.get_recommendations(db, customer.id)
 
 
 @router.get("/merchants/{merchant_id}/products", response_model=list[ProductOut])

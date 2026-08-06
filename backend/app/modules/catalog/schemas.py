@@ -40,3 +40,9 @@ class MerchantOut(BaseModel):
     name: str
     address: str
     status: str
+    rating: Decimal
+
+
+class RecommendationsOut(BaseModel):
+    order_again: list[ProductOut]
+    recommended: list[ProductOut]

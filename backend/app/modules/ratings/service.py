@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.enums import OrderStatus
 from app.core.exceptions import ConflictError, NotFoundError, PermissionDeniedError
+from app.modules.catalog.models import Merchant
 from app.modules.orders.models import Order
 from app.modules.ratings.models import Rating
 from app.modules.ratings.schemas import RatingCreate
@@ -36,6 +37,9 @@ async def create_rating(
         shipper_id=order.shipper_id,
         score=payload.score,
         comment=payload.comment,
+        merchant_id=order.merchant_id,
+        merchant_score=payload.merchant_score,
+        merchant_comment=payload.merchant_comment,
     )
     db.add(rating)
     await db.flush()
@@ -46,6 +50,16 @@ async def create_rating(
     shipper = await db.get(Shipper, order.shipper_id)
     if shipper is not None and avg_score is not None:
         shipper.rating = round(float(avg_score), 2)
+
+    if payload.merchant_score is not None:
+        avg_merchant_score = await db.scalar(
+            select(func.avg(Rating.merchant_score)).where(
+                Rating.merchant_id == order.merchant_id, Rating.merchant_score.isnot(None)
+            )
+        )
+        merchant = await db.get(Merchant, order.merchant_id)
+        if merchant is not None and avg_merchant_score is not None:
+            merchant.rating = round(float(avg_merchant_score), 2)
 
     await db.commit()
     await db.refresh(rating)
