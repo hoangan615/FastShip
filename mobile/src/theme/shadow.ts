@@ -10,11 +10,11 @@ export function cardShadow(palette: ColorPalette, scheme: "light" | "dark"): Vie
     };
   }
   return {
-    shadowColor: "#0f172a",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
-    elevation: 1,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.09,
+    shadowRadius: 6,
+    elevation: 2,
     borderWidth: 1,
     borderColor: palette.border,
   };
@@ -28,7 +28,7 @@ export function raisedShadow(palette: ColorPalette, scheme: "light" | "dark"): V
     };
   }
   return {
-    shadowColor: "#0f172a",
+    shadowColor: "#000000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
     shadowRadius: 10,

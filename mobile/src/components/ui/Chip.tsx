@@ -19,9 +19,9 @@ export function Chip({
       style={({ pressed }) => [
         styles.chip,
         {
-          borderRadius: theme.radius.pill,
+          borderRadius: theme.radius.sm,
           borderColor: selected ? theme.colors.primary : theme.colors.border,
-          backgroundColor: selected ? theme.colors.primary : "transparent",
+          backgroundColor: selected ? theme.colors.infoBg : theme.colors.surface,
           opacity: pressed ? 0.85 : 1,
         },
       ]}
@@ -29,7 +29,7 @@ export function Chip({
       <Text
         style={[
           styles.label,
-          { color: selected ? theme.colors.primaryText : theme.colors.text },
+          { color: selected ? theme.colors.primary : theme.colors.text },
         ]}
       >
         {label}
@@ -48,7 +48,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   label: {
-    fontWeight: "600",
+    fontWeight: "500",
     fontSize: 13,
     textTransform: "capitalize",
   },

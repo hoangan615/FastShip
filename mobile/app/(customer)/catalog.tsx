@@ -88,7 +88,7 @@ export default function CatalogScreen() {
             })}
             onPress={() => router.push("/(customer)/checkout")}
           >
-            <Text style={{ color: theme.colors.textInverse, fontWeight: "700" }}>
+            <Text style={{ color: theme.colors.textInverse, fontWeight: "600" }}>
               View cart ({cartCount})
             </Text>
             <Ionicons name="chevron-forward" size={16} color={theme.colors.textInverse} />

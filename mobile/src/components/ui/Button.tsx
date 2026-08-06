@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 15,
-    fontWeight: "700",
+    fontWeight: "500",
   },
   icon: {
     marginRight: 8,

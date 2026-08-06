@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   title: {
-    fontWeight: "700",
+    fontWeight: "600",
     fontSize: 15,
   },
   subtitle: {

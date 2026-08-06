@@ -37,57 +37,57 @@ export interface ColorPalette {
 }
 
 export const light: ColorPalette = {
-  background: "#f1f5f9",
+  background: "#f5f5f5",
   surface: "#ffffff",
-  surfaceAlt: "#f8fafc",
-  border: "#e2e8f0",
-  text: "#0f172a",
-  textMuted: "#64748b",
+  surfaceAlt: "#fafafa",
+  border: "#d9d9d9",
+  text: "rgba(0, 0, 0, 0.88)",
+  textMuted: "rgba(0, 0, 0, 0.45)",
   textInverse: "#ffffff",
-  primary: "#0f172a",
+  primary: "#1677ff",
   primaryText: "#ffffff",
-  danger: "#dc2626",
-  dangerBg: "#fee2e2",
-  dangerFg: "#b91c1c",
-  success: "#16a34a",
-  successBg: "#dcfce7",
-  successFg: "#15803d",
-  warning: "#f59e0b",
-  warningBg: "#fef3c7",
-  warningFg: "#b45309",
-  info: "#3b82f6",
-  infoBg: "#dbeafe",
-  infoFg: "#1d4ed8",
-  neutralBg: "#e2e8f0",
-  neutralFg: "#475569",
-  overlay: "rgba(15, 23, 42, 0.4)",
+  danger: "#ff4d4f",
+  dangerBg: "#fff2f0",
+  dangerFg: "#cf1322",
+  success: "#52c41a",
+  successBg: "#f6ffed",
+  successFg: "#389e0d",
+  warning: "#faad14",
+  warningBg: "#fffbe6",
+  warningFg: "#d48806",
+  info: "#1677ff",
+  infoBg: "#e6f4ff",
+  infoFg: "#0958d9",
+  neutralBg: "#fafafa",
+  neutralFg: "rgba(0, 0, 0, 0.65)",
+  overlay: "rgba(0, 0, 0, 0.45)",
 };
 
 export const dark: ColorPalette = {
-  background: "#0b1220",
-  surface: "#161f30",
-  surfaceAlt: "#1c2740",
-  border: "#2a3650",
-  text: "#f1f5f9",
-  textMuted: "#94a3b8",
-  textInverse: "#0f172a",
-  primary: "#e2e8f0",
-  primaryText: "#0f172a",
-  danger: "#f87171",
-  dangerBg: "#3f1d1d",
-  dangerFg: "#fca5a5",
-  success: "#4ade80",
-  successBg: "#123a24",
-  successFg: "#86efac",
-  warning: "#fbbf24",
-  warningBg: "#3f2d0c",
-  warningFg: "#fcd34d",
-  info: "#60a5fa",
-  infoBg: "#152a4d",
-  infoFg: "#93c5fd",
-  neutralBg: "#2a3650",
-  neutralFg: "#cbd5e1",
-  overlay: "rgba(0, 0, 0, 0.6)",
+  background: "#000000",
+  surface: "#1f1f1f",
+  surfaceAlt: "#262626",
+  border: "#424242",
+  text: "rgba(255, 255, 255, 0.85)",
+  textMuted: "rgba(255, 255, 255, 0.45)",
+  textInverse: "rgba(0, 0, 0, 0.88)",
+  primary: "#1668dc",
+  primaryText: "#ffffff",
+  danger: "#dc4446",
+  dangerBg: "#2c1618",
+  dangerFg: "#e84749",
+  success: "#49aa19",
+  successBg: "#162312",
+  successFg: "#49aa19",
+  warning: "#d89614",
+  warningBg: "#2b2111",
+  warningFg: "#d89614",
+  info: "#1668dc",
+  infoBg: "#111a2c",
+  infoFg: "#3c89e8",
+  neutralBg: "#262626",
+  neutralFg: "rgba(255, 255, 255, 0.65)",
+  overlay: "rgba(0, 0, 0, 0.65)",
 };
 
 export const STATUS_META: Record<
@@ -105,9 +105,29 @@ export const STATUS_META: Record<
   rejected: { tone: "danger", icon: "close-circle" },
 };
 
+// Ant Design Tag border tints — a Tag is bg + 1px border in the same tone, not a
+// solid fill, so these are kept separate from the bg/fg pair above.
+const TAG_BORDER = {
+  light: {
+    warning: "#ffe58f",
+    info: "#91caff",
+    success: "#b7eb8f",
+    danger: "#ffccc7",
+    neutral: "#d9d9d9",
+  },
+  dark: {
+    warning: "#594214",
+    info: "#15325b",
+    success: "#274916",
+    danger: "#58181c",
+    neutral: "#424242",
+  },
+} as const;
+
 export function statusColors(palette: ColorPalette, status: string) {
   const meta = STATUS_META[status as StatusKey];
   const tone = meta?.tone ?? "neutral";
+  const scheme = palette === dark ? "dark" : "light";
   const map = {
     warning: { bg: palette.warningBg, fg: palette.warningFg },
     info: { bg: palette.infoBg, fg: palette.infoFg },
@@ -115,5 +135,5 @@ export function statusColors(palette: ColorPalette, status: string) {
     danger: { bg: palette.dangerBg, fg: palette.dangerFg },
     neutral: { bg: palette.neutralBg, fg: palette.neutralFg },
   } as const;
-  return { ...map[tone], icon: meta?.icon ?? "ellipse-outline" };
+  return { ...map[tone], border: TAG_BORDER[scheme][tone], icon: meta?.icon ?? "ellipse-outline" };
 }

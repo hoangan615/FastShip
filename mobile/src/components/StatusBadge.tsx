@@ -5,10 +5,15 @@ import { useTheme } from "@/theme";
 
 export function StatusBadge({ status }: { status: string }) {
   const theme = useTheme();
-  const { bg, fg, icon } = theme.statusColors(status);
+  const { bg, fg, border, icon } = theme.statusColors(status);
 
   return (
-    <View style={[styles.badge, { backgroundColor: bg, borderRadius: theme.radius.pill }]}>
+    <View
+      style={[
+        styles.badge,
+        { backgroundColor: bg, borderColor: border, borderRadius: theme.radius.sm },
+      ]}
+    >
       <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={12} color={fg} style={styles.icon} />
       <Text style={[styles.text, { color: fg }]}>{status.replace(/_/g, " ")}</Text>
     </View>
@@ -21,6 +26,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 10,
     paddingVertical: 4,
+    borderWidth: 1,
     alignSelf: "flex-start",
   },
   icon: {
@@ -28,7 +34,7 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "500",
     textTransform: "capitalize",
   },
 });
