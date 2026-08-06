@@ -8,7 +8,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { useTheme } from "@/theme";
 
 const ROLE_HOME: Record<string, string> = {
-  customer: "/(customer)/catalog",
+  customer: "/(customer)/home",
   merchant: "/(merchant)/incoming-orders",
   shipper: "/(shipper)/home",
   ops: "/(ops)/dashboard",

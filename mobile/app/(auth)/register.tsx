@@ -10,7 +10,7 @@ import type { UserRole } from "@/types/api";
 
 const ROLES: UserRole[] = ["customer", "merchant", "shipper", "ops"];
 const ROLE_HOME: Record<string, string> = {
-  customer: "/(customer)/catalog",
+  customer: "/(customer)/home",
   merchant: "/(merchant)/incoming-orders",
   shipper: "/(shipper)/home",
   ops: "/(ops)/dashboard",

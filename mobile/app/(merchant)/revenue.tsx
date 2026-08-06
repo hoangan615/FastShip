@@ -2,7 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { RefreshControl, Text, View } from "react-native";
 
 import * as api from "@/api/endpoints";
+import { OrderCard } from "@/components/OrderCard";
 import { Card, EmptyState, Screen } from "@/components/ui";
+import { useMerchantOrders } from "@/hooks/useOrders";
 import { useTheme } from "@/theme";
 
 export default function RevenueScreen() {
@@ -12,6 +14,10 @@ export default function RevenueScreen() {
     queryFn: api.getMerchantRevenue,
     refetchInterval: 15_000,
   });
+  const { data: orders } = useMerchantOrders();
+
+  const pendingConfirmation = (orders ?? []).filter((o) => o.status === "pending_confirmation").length;
+  const recentOrders = (orders ?? []).slice(0, 5);
 
   if (isLoading || !data) {
     return (
@@ -23,6 +29,14 @@ export default function RevenueScreen() {
 
   return (
     <Screen scroll refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}>
+      {pendingConfirmation > 0 && (
+        <Card variant="tinted-warning">
+          <Text style={{ color: theme.colors.warningFg, fontWeight: "600" }}>
+            {pendingConfirmation} order{pendingConfirmation > 1 ? "s" : ""} awaiting your confirmation
+          </Text>
+        </Card>
+      )}
+
       <Card>
         <Text style={[theme.typography.title, { color: theme.colors.text, textAlign: "center" }]}>
           {Number(data.total_revenue).toLocaleString()} VND
@@ -88,6 +102,17 @@ export default function RevenueScreen() {
           </Card>
         </View>
       </View>
+
+      {recentOrders.length > 0 && (
+        <>
+          <Text style={[theme.typography.heading, { color: theme.colors.text, marginTop: theme.spacing.sm }]}>
+            Recent orders
+          </Text>
+          {recentOrders.map((order) => (
+            <OrderCard key={order.id} order={order} />
+          ))}
+        </>
+      )}
     </Screen>
   );
 }

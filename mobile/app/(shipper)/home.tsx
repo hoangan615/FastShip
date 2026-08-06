@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Location from "expo-location";
 import { Link } from "expo-router";
@@ -17,6 +18,10 @@ export default function ShipperHomeScreen() {
   const { data: profile, isLoading } = useQuery({
     queryKey: ["shippers", "me"],
     queryFn: api.getMyShipperProfile,
+  });
+  const { data: revenue } = useQuery({
+    queryKey: ["shippers", "me", "revenue"],
+    queryFn: api.getShipperRevenue,
   });
   const [toggling, setToggling] = useState(false);
   const [offer, setOffer] = useState<{ order_id: string; expires_in: number } | null>(null);
@@ -97,8 +102,29 @@ export default function ShipperHomeScreen() {
   }
 
   return (
-    <Screen>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+    <Screen scroll>
+      <View style={{ flexDirection: "row", gap: theme.spacing.sm }}>
+        <Stat
+          icon="star"
+          value={profile ? Number(profile.rating).toFixed(1) : "—"}
+          label="Rating"
+        />
+        <Stat icon="checkmark-done" value={String(revenue?.total_deliveries ?? "—")} label="Deliveries" />
+        <Stat
+          icon="time-outline"
+          value={revenue ? `${Number(revenue.pending_payout).toLocaleString()}đ` : "—"}
+          label="Pending payout"
+        />
+      </View>
+
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginTop: theme.spacing.md,
+        }}
+      >
         <Text style={[theme.typography.title, { color: theme.colors.text }]}>
           {isOnline ? "Online" : "Offline"}
         </Text>
@@ -150,5 +176,40 @@ export default function ShipperHomeScreen() {
         </Link>
       )}
     </Screen>
+  );
+}
+
+function Stat({
+  icon,
+  value,
+  label,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  value: string;
+  label: string;
+}) {
+  const theme = useTheme();
+  return (
+    <View style={{ flex: 1 }}>
+      <Card>
+        <Ionicons name={icon} size={16} color={theme.colors.textMuted} style={{ alignSelf: "center" }} />
+        <Text
+          style={[
+            theme.typography.bodyStrong,
+            { color: theme.colors.text, textAlign: "center", marginTop: 4 },
+          ]}
+        >
+          {value}
+        </Text>
+        <Text
+          style={[
+            theme.typography.small,
+            { color: theme.colors.textMuted, textAlign: "center", marginTop: 2, fontWeight: "500" },
+          ]}
+        >
+          {label}
+        </Text>
+      </Card>
+    </View>
   );
 }

@@ -21,6 +21,10 @@ export default function CustomerLayout() {
       }}
     >
       <Tabs.Screen
+        name="home"
+        options={{ title: "Home", tabBarIcon: tabIcon("home", "home-outline") }}
+      />
+      <Tabs.Screen
         name="catalog"
         options={{ title: "Catalog", tabBarIcon: tabIcon("storefront", "storefront-outline") }}
       />
