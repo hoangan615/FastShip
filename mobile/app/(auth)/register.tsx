@@ -3,7 +3,7 @@ import { useState } from "react";
 import { KeyboardAvoidingView, Platform, Text, View } from "react-native";
 
 import * as api from "@/api/endpoints";
-import { Button, Chip, TextField } from "@/components/ui";
+import { Button, Chip, ScreenBackground, TextField } from "@/components/ui";
 import { useAuthStore } from "@/stores/authStore";
 import { useTheme } from "@/theme";
 import type { UserRole } from "@/types/api";
@@ -42,49 +42,52 @@ export default function RegisterScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: theme.colors.background }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <View style={{ flex: 1, justifyContent: "center", padding: theme.spacing.xxl, gap: theme.spacing.md }}>
-        <Text
-          style={[
-            theme.typography.title,
-            { color: theme.colors.text, textAlign: "center", marginBottom: theme.spacing.sm },
-          ]}
-        >
-          Create account
-        </Text>
+    <View style={{ flex: 1 }}>
+      <ScreenBackground />
+      <KeyboardAvoidingView
+        style={{ flex: 1, backgroundColor: "transparent" }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <View style={{ flex: 1, justifyContent: "center", padding: theme.spacing.xxl, gap: theme.spacing.md }}>
+          <Text
+            style={[
+              theme.typography.title,
+              { color: theme.colors.text, textAlign: "center", marginBottom: theme.spacing.sm },
+            ]}
+          >
+            Create account
+          </Text>
 
-        <TextField placeholder="Name" value={name} onChangeText={setName} />
-        <TextField
-          placeholder="Email"
-          autoCapitalize="none"
-          keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
-        />
-        <TextField placeholder="Password" secureTextEntry value={password} onChangeText={setPassword} />
+          <TextField placeholder="Name" value={name} onChangeText={setName} />
+          <TextField
+            placeholder="Email"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            value={email}
+            onChangeText={setEmail}
+          />
+          <TextField placeholder="Password" secureTextEntry value={password} onChangeText={setPassword} />
 
-        <Text
-          style={[theme.typography.bodyStrong, { color: theme.colors.text, marginTop: theme.spacing.xs }]}
-        >
-          I am a...
-        </Text>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: theme.spacing.sm }}>
-          {ROLES.map((r) => (
-            <Chip key={r} label={r} selected={role === r} onPress={() => setRole(r)} />
-          ))}
+          <Text
+            style={[theme.typography.bodyStrong, { color: theme.colors.text, marginTop: theme.spacing.xs }]}
+          >
+            I am a...
+          </Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: theme.spacing.sm }}>
+            {ROLES.map((r) => (
+              <Chip key={r} label={r} selected={role === r} onPress={() => setRole(r)} />
+            ))}
+          </View>
+
+          {error && (
+            <Text style={[theme.typography.caption, { color: theme.colors.danger }]}>{error}</Text>
+          )}
+
+          <View style={{ marginTop: theme.spacing.sm }}>
+            <Button label="Create account" onPress={handleRegister} loading={loading} />
+          </View>
         </View>
-
-        {error && (
-          <Text style={[theme.typography.caption, { color: theme.colors.danger }]}>{error}</Text>
-        )}
-
-        <View style={{ marginTop: theme.spacing.sm }}>
-          <Button label="Create account" onPress={handleRegister} loading={loading} />
-        </View>
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }

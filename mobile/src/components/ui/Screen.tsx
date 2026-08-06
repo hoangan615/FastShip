@@ -4,6 +4,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTheme } from "@/theme";
 
+import { ScreenBackground } from "./ScreenBackground";
+
 export function Screen({
   children,
   scroll = false,
@@ -46,7 +48,8 @@ export function Screen({
   );
 
   return (
-    <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
+    <View style={styles.root}>
+      <ScreenBackground />
       {content}
       {stickyBottom && (
         <View

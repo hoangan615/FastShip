@@ -3,7 +3,7 @@ import { useState } from "react";
 import { KeyboardAvoidingView, Platform, Text, View } from "react-native";
 
 import * as api from "@/api/endpoints";
-import { Button, TextField } from "@/components/ui";
+import { Button, ScreenBackground, TextField } from "@/components/ui";
 import { useAuthStore } from "@/stores/authStore";
 import { useTheme } from "@/theme";
 
@@ -38,44 +38,47 @@ export default function LoginScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: theme.colors.background }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <View style={{ flex: 1, justifyContent: "center", padding: theme.spacing.xxl, gap: theme.spacing.md }}>
-        <Text style={[theme.typography.display, { color: theme.colors.text, textAlign: "center" }]}>
-          FastShip
-        </Text>
-        <Text
-          style={[
-            theme.typography.body,
-            { color: theme.colors.textMuted, textAlign: "center", marginBottom: theme.spacing.lg },
-          ]}
-        >
-          Sign in to continue
-        </Text>
+    <View style={{ flex: 1 }}>
+      <ScreenBackground />
+      <KeyboardAvoidingView
+        style={{ flex: 1, backgroundColor: "transparent" }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <View style={{ flex: 1, justifyContent: "center", padding: theme.spacing.xxl, gap: theme.spacing.md }}>
+          <Text style={[theme.typography.display, { color: theme.colors.text, textAlign: "center" }]}>
+            FastShip
+          </Text>
+          <Text
+            style={[
+              theme.typography.body,
+              { color: theme.colors.textMuted, textAlign: "center", marginBottom: theme.spacing.lg },
+            ]}
+          >
+            Sign in to continue
+          </Text>
 
-        <TextField
-          placeholder="Email"
-          autoCapitalize="none"
-          keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
-        />
-        <TextField placeholder="Password" secureTextEntry value={password} onChangeText={setPassword} />
+          <TextField
+            placeholder="Email"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            value={email}
+            onChangeText={setEmail}
+          />
+          <TextField placeholder="Password" secureTextEntry value={password} onChangeText={setPassword} />
 
-        {error && (
-          <Text style={[theme.typography.caption, { color: theme.colors.danger }]}>{error}</Text>
-        )}
+          {error && (
+            <Text style={[theme.typography.caption, { color: theme.colors.danger }]}>{error}</Text>
+          )}
 
-        <View style={{ marginTop: theme.spacing.sm }}>
-          <Button label="Sign in" onPress={handleLogin} loading={loading} />
+          <View style={{ marginTop: theme.spacing.sm }}>
+            <Button label="Sign in" onPress={handleLogin} loading={loading} />
+          </View>
+
+          <Link href="/(auth)/register" style={{ alignSelf: "center", marginTop: theme.spacing.lg }}>
+            <Text style={{ color: theme.colors.primary, fontWeight: "600" }}>No account? Register</Text>
+          </Link>
         </View>
-
-        <Link href="/(auth)/register" style={{ alignSelf: "center", marginTop: theme.spacing.lg }}>
-          <Text style={{ color: theme.colors.primary, fontWeight: "600" }}>No account? Register</Text>
-        </Link>
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
