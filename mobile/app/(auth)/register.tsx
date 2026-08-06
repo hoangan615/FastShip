@@ -1,18 +1,11 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { KeyboardAvoidingView, Platform, Text, View } from "react-native";
 
 import * as api from "@/api/endpoints";
+import { Button, Chip, TextField } from "@/components/ui";
 import { useAuthStore } from "@/stores/authStore";
+import { useTheme } from "@/theme";
 import type { UserRole } from "@/types/api";
 
 const ROLES: UserRole[] = ["customer", "merchant", "shipper", "ops"];
@@ -24,6 +17,7 @@ const ROLE_HOME: Record<string, string> = {
 };
 
 export default function RegisterScreen() {
+  const theme = useTheme();
   const router = useRouter();
   const setAuth = useAuthStore((s) => s.setAuth);
   const [name, setName] = useState("");
@@ -49,82 +43,48 @@ export default function RegisterScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <Text style={styles.title}>Create account</Text>
+      <View style={{ flex: 1, justifyContent: "center", padding: theme.spacing.xxl, gap: theme.spacing.md }}>
+        <Text
+          style={[
+            theme.typography.title,
+            { color: theme.colors.text, textAlign: "center", marginBottom: theme.spacing.sm },
+          ]}
+        >
+          Create account
+        </Text>
 
-      <TextInput style={styles.input} placeholder="Name" value={name} onChangeText={setName} />
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        autoCapitalize="none"
-        keyboardType="email-address"
-        value={email}
-        onChangeText={setEmail}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
+        <TextField placeholder="Name" value={name} onChangeText={setName} />
+        <TextField
+          placeholder="Email"
+          autoCapitalize="none"
+          keyboardType="email-address"
+          value={email}
+          onChangeText={setEmail}
+        />
+        <TextField placeholder="Password" secureTextEntry value={password} onChangeText={setPassword} />
 
-      <Text style={styles.label}>I am a...</Text>
-      <View style={styles.roleRow}>
-        {ROLES.map((r) => (
-          <Pressable
-            key={r}
-            style={[styles.roleChip, role === r && styles.roleChipSelected]}
-            onPress={() => setRole(r)}
-          >
-            <Text style={role === r ? styles.roleTextSelected : styles.roleText}>{r}</Text>
-          </Pressable>
-        ))}
-      </View>
+        <Text
+          style={[theme.typography.bodyStrong, { color: theme.colors.text, marginTop: theme.spacing.xs }]}
+        >
+          I am a...
+        </Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: theme.spacing.sm }}>
+          {ROLES.map((r) => (
+            <Chip key={r} label={r} selected={role === r} onPress={() => setRole(r)} />
+          ))}
+        </View>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-
-      <Pressable style={styles.button} onPress={handleRegister} disabled={loading}>
-        {loading ? (
-          <ActivityIndicator color="white" />
-        ) : (
-          <Text style={styles.buttonText}>Create account</Text>
+        {error && (
+          <Text style={[theme.typography.caption, { color: theme.colors.danger }]}>{error}</Text>
         )}
-      </Pressable>
+
+        <View style={{ marginTop: theme.spacing.sm }}>
+          <Button label="Create account" onPress={handleRegister} loading={loading} />
+        </View>
+      </View>
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", padding: 24, gap: 12 },
-  title: { fontSize: 26, fontWeight: "800", textAlign: "center", marginBottom: 12 },
-  input: {
-    borderWidth: 1,
-    borderColor: "#cbd5e1",
-    borderRadius: 10,
-    padding: 12,
-  },
-  label: { fontWeight: "600", marginTop: 8 },
-  roleRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  roleChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#cbd5e1",
-  },
-  roleChipSelected: { backgroundColor: "#0f172a", borderColor: "#0f172a" },
-  roleText: { textTransform: "capitalize", color: "#0f172a" },
-  roleTextSelected: { textTransform: "capitalize", color: "white" },
-  button: {
-    backgroundColor: "#0f172a",
-    borderRadius: 10,
-    padding: 14,
-    alignItems: "center",
-    marginTop: 8,
-  },
-  buttonText: { color: "white", fontWeight: "700" },
-  error: { color: "#dc2626" },
-});

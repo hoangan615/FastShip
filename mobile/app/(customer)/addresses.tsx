@@ -1,18 +1,13 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Alert, FlatList, Text, View } from "react-native";
 
 import * as api from "@/api/endpoints";
+import { Button, EmptyState, IconButton, Screen, TextField } from "@/components/ui";
+import { useTheme } from "@/theme";
 
 export default function AddressesScreen() {
+  const theme = useTheme();
   const queryClient = useQueryClient();
   const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ["customers", "me", "addresses"],
@@ -40,95 +35,77 @@ export default function AddressesScreen() {
     }
   }
 
-  async function handleDelete(id: string) {
-    await api.deleteMyAddress(id);
-    queryClient.invalidateQueries({ queryKey: ["customers", "me", "addresses"] });
+  function confirmDelete(id: string, label: string) {
+    Alert.alert("Remove address", `Remove "${label}" from your saved addresses?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Remove",
+        style: "destructive",
+        onPress: async () => {
+          await api.deleteMyAddress(id);
+          queryClient.invalidateQueries({ queryKey: ["customers", "me", "addresses"] });
+        },
+      },
+    ]);
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.heading}>Add address</Text>
-      <View style={styles.form}>
-        <TextInput
-          style={styles.input}
-          placeholder="Label (e.g. Home, Work)"
-          value={label}
-          onChangeText={setLabel}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Address"
-          value={address}
-          onChangeText={setAddress}
-        />
-        <View style={styles.coordsRow}>
-          <TextInput
-            style={[styles.input, { flex: 1 }]}
-            placeholder="Latitude"
-            keyboardType="numeric"
-            value={lat}
-            onChangeText={setLat}
-          />
-          <TextInput
-            style={[styles.input, { flex: 1 }]}
-            placeholder="Longitude"
-            keyboardType="numeric"
-            value={lng}
-            onChangeText={setLng}
-          />
+    <Screen scroll>
+      <Text style={[theme.typography.heading, { color: theme.colors.text }]}>Add address</Text>
+      <View style={{ gap: theme.spacing.sm }}>
+        <TextField placeholder="Label (e.g. Home, Work)" value={label} onChangeText={setLabel} />
+        <TextField placeholder="Address" value={address} onChangeText={setAddress} />
+        <View style={{ flexDirection: "row", gap: theme.spacing.sm }}>
+          <View style={{ flex: 1 }}>
+            <TextField placeholder="Latitude" keyboardType="numeric" value={lat} onChangeText={setLat} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <TextField placeholder="Longitude" keyboardType="numeric" value={lng} onChangeText={setLng} />
+          </View>
         </View>
-        <Pressable style={styles.addButton} onPress={handleAdd} disabled={saving}>
-          {saving ? <ActivityIndicator color="white" /> : <Text style={styles.addButtonText}>Save address</Text>}
-        </Pressable>
+        <Button label="Save address" onPress={handleAdd} loading={saving} />
       </View>
 
-      <Text style={styles.heading}>Saved addresses</Text>
+      <Text style={[theme.typography.heading, { color: theme.colors.text, marginTop: theme.spacing.md }]}>
+        Saved addresses
+      </Text>
       <FlatList
         data={data ?? []}
         keyExtractor={(a) => a.id}
+        scrollEnabled={false}
         onRefresh={refetch}
         refreshing={isRefetching}
         ListEmptyComponent={
-          <Text style={styles.empty}>{isLoading ? "Loading..." : "No saved addresses yet."}</Text>
+          <EmptyState
+            icon="location-outline"
+            title={isLoading ? "Loading..." : "No saved addresses yet"}
+            loading={isLoading}
+          />
         }
         renderItem={({ item }) => (
-          <View style={styles.addressRow}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              paddingVertical: theme.spacing.md,
+              borderBottomWidth: 1,
+              borderBottomColor: theme.colors.border,
+            }}
+          >
             <View style={{ flex: 1 }}>
-              <Text style={styles.addressLabel}>{item.label}</Text>
-              <Text style={styles.addressText}>{item.address}</Text>
+              <Text style={[theme.typography.bodyStrong, { color: theme.colors.text }]}>{item.label}</Text>
+              <Text style={[theme.typography.caption, { color: theme.colors.textMuted, marginTop: 2 }]}>
+                {item.address}
+              </Text>
             </View>
-            <Pressable onPress={() => handleDelete(item.id)}>
-              <Text style={styles.deleteText}>Remove</Text>
-            </Pressable>
+            <IconButton
+              name="trash-outline"
+              color={theme.colors.danger}
+              onPress={() => confirmDelete(item.id, item.label)}
+            />
           </View>
         )}
       />
-    </View>
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  heading: { fontSize: 16, fontWeight: "700", marginTop: 12, marginBottom: 8 },
-  form: { gap: 8 },
-  coordsRow: { flexDirection: "row", gap: 8 },
-  input: { borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 10, padding: 10 },
-  addButton: {
-    backgroundColor: "#0f172a",
-    borderRadius: 10,
-    padding: 12,
-    alignItems: "center",
-  },
-  addButtonText: { color: "white", fontWeight: "700" },
-  empty: { color: "#94a3b8", textAlign: "center", marginTop: 24 },
-  addressRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
-  },
-  addressLabel: { fontWeight: "600" },
-  addressText: { color: "#475569", marginTop: 2 },
-  deleteText: { color: "#dc2626", fontWeight: "600" },
-});

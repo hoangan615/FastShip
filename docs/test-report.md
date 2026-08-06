@@ -118,3 +118,79 @@ Screenshot 17 in particular is the key piece of evidence: before the room-mismat
 
 - `docs/test-report.md` — this file
 - `docs/screenshots/*.png` — the 26 screenshots above
+
+---
+
+## 6. UI/UX redesign verification pass (2026-08-06)
+
+**Scope:** verify the full UI/UX redesign (design system, dark mode, icons, confirm
+dialogs — see the branch's redesign commit) against a real live stack, and refresh all
+26 screenshots above plus a supplementary dark-mode set. No backend code changed in
+this pass.
+
+### Environment
+
+No Docker daemon available in this sandbox, so the stack was run natively instead:
+PostgreSQL 16 and Redis 7 installed system packages, started directly
+(`pg_ctlcluster 16 main start`, `redis-server --daemonize yes`), a `fastship`/`fastship`
+role+database created to match `backend/app/config.py`'s localhost defaults (no `.env`
+file used — `.env.example`'s Docker hostnames would otherwise shadow those defaults), a
+fresh `backend/.venv` with `pip install -e ".[dev]"`, `alembic upgrade head`, and
+`python scripts/seed.py` for demo data. FastAPI (`uvicorn`), Celery worker, and Celery
+beat were run as real background processes, plus `expo start --web` for the mobile
+build — the same shape of live stack as section 1 above.
+
+### Results
+
+- **Backend test suite:** `227 passed, 21 skipped, 0 failed` — identical to the count
+  in section 2, confirming no regressions from the UI-only redesign.
+- **TypeScript:** `npx tsc --noEmit` in `mobile/` — clean, no errors.
+- **Playwright walkthrough:** a new script, `mobile/e2e/capture-screenshots.js`
+  (committed to the repo this pass — none existed before), drives four concurrent
+  logged-in personas (customer/merchant/shipper/ops) through the same 26 flows listed
+  in section 4's table, now exercising the redesigned UI: the new design-token theme,
+  `Ionicons` throughout (tab bar, status badges, star ratings, chevrons replacing the
+  old `"->"`/`"<"` text arrows), the tinted `StatusBadge`, real `Pressable`-backed
+  Accept/Decline buttons on the shipper offer card (previously bare `<Text>`), the
+  checkout screen's safe-area sticky button, and `Alert.alert` confirmations before
+  cancel/reject/fail/refund/release/delete actions. Zero `pageerror`/console errors
+  across the full walkthrough. All 26 screenshots were re-captured with real, live,
+  freshly-seeded data (not static/faked auth) — see the updated table below.
+- **Dark mode:** `mobile/app.json`'s `userInterfaceStyle` is now `"automatic"`, so a
+  small supplementary set of dark-mode screenshots was captured at
+  `docs/screenshots/dark/` (login, customer catalog, customer order detail, shipper
+  home online, ops dashboard) — light/dark toggling verified with no layout breakage.
+
+### Bug found and fixed **in the test script**, not the app
+
+The shipper's periodic GPS ping (`expo-location`, called every ~7s from a
+`setInterval`) is throttled by Chromium on a backgrounded (non-focused) browser tab.
+Since the walkthrough juggles four personas' pages, leaving the shipper "online" while
+driving the customer/merchant flows let its heartbeat go stale past
+`SHIPPER_OFFLINE_AFTER_SECONDS` (30s), and the backend's real stale-shipper watcher
+(working as designed) correctly flipped them back offline before the live offer could
+be captured. Fixed by having the script call `page.bringToFront()` and send a direct
+location ping via `fetch` (bypassing the throttled in-app timer) right before the
+shipper needs to be online, and by toggling the shipper online just before the
+merchant confirms rather than at the very start of the walkthrough. This is a test
+artifact of running multiple browser tabs concurrently in one process, not a bug in
+the app itself — confirmed by the fact that `docs/screenshots/17-shipper-offer-received.png`
+now shows a real, live socket-delivered offer.
+
+### Known minor cosmetic issues observed (not fixed in this pass — out of scope)
+
+- **Stat card label wrapping**: on `(ops)/dashboard.tsx` and similar 4-across stat
+  rows, the "Completed" label can wrap onto two lines ("Complet"/"ed") on a 390px-wide
+  viewport because the card is too narrow for the label at the current font size.
+  Visible in `docs/screenshots/24-ops-dashboard.png`. Cosmetic only.
+- **Product status label**: `(merchant)/product/[id].tsx`'s visibility chips use
+  `s.replace("_", " ")` (pre-existing, unchanged by the redesign), which only replaces
+  the *first* underscore — `"out_of_stock"` renders as "Out Of_stock" instead of "Out
+  Of Stock". Visible in `docs/screenshots/13-merchant-product-edit.png`. One-line fix
+  (`replace(/_/g, " ")`) recommended for a future pass.
+
+### Files in this section
+
+- `mobile/e2e/capture-screenshots.js` — the walkthrough script (new, committed)
+- `docs/screenshots/*.png` — refreshed (26 files, same names as section 4's table)
+- `docs/screenshots/dark/*.png` — new supplementary dark-mode set (5 files)

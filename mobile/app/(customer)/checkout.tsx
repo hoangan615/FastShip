@@ -1,17 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Text, View } from "react-native";
 
 import * as api from "@/api/endpoints";
+import { Button, Chip, Screen, TextField } from "@/components/ui";
+import { useTheme } from "@/theme";
 import { useCartStore } from "@/stores/cartStore";
 import type { PaymentMethod, SavedAddress } from "@/types/api";
 
@@ -21,6 +15,7 @@ const METHODS: PaymentMethod[] = ["wallet", "card", "cod"];
 const CUSTOM_DROPOFF_COORDS = { lat: 10.7829, lng: 106.6997 };
 
 export default function CheckoutScreen() {
+  const theme = useTheme();
   const router = useRouter();
   const cart = useCartStore();
   const lines = Object.values(cart.lines);
@@ -63,116 +58,81 @@ export default function CheckoutScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16, gap: 12 }}>
-      <Text style={styles.heading}>Your order</Text>
+    <Screen
+      scroll
+      stickyBottom={
+        <Button
+          label="Place order"
+          onPress={handlePlaceOrder}
+          loading={submitting}
+          disabled={lines.length === 0}
+        />
+      }
+    >
+      <Text style={[theme.typography.heading, { color: theme.colors.text }]}>Your order</Text>
       {lines.map((l) => (
-        <View key={l.product.id} style={styles.line}>
-          <Text>
+        <View key={l.product.id} style={{ flexDirection: "row", justifyContent: "space-between" }}>
+          <Text style={{ color: theme.colors.text }}>
             {l.qty}x {l.product.name}
           </Text>
-          <Text>{Number(l.product.price) * l.qty} VND</Text>
+          <Text style={{ color: theme.colors.text }}>{Number(l.product.price) * l.qty} VND</Text>
         </View>
       ))}
-      <View style={[styles.line, styles.totalLine]}>
-        <Text style={styles.totalText}>Total</Text>
-        <Text style={styles.totalText}>{total} VND</Text>
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          borderTopWidth: 1,
+          borderTopColor: theme.colors.border,
+          paddingTop: theme.spacing.sm,
+        }}
+      >
+        <Text style={[theme.typography.bodyStrong, { color: theme.colors.text }]}>Total</Text>
+        <Text style={[theme.typography.bodyStrong, { color: theme.colors.text }]}>{total} VND</Text>
       </View>
 
-      <Text style={styles.label}>Delivery address</Text>
+      <Text style={[theme.typography.bodyStrong, { color: theme.colors.text, marginTop: theme.spacing.sm }]}>
+        Delivery address
+      </Text>
       {savedAddresses && savedAddresses.length > 0 && (
-        <View style={styles.methodRow}>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: theme.spacing.sm }}>
           {savedAddresses.map((a) => (
-            <Pressable
+            <Chip
               key={a.id}
-              style={[styles.methodChip, selectedAddress?.id === a.id && styles.methodChipSelected]}
+              label={a.label}
+              selected={selectedAddress?.id === a.id}
               onPress={() => setSelectedAddress(a)}
-            >
-              <Text style={selectedAddress?.id === a.id ? styles.methodTextSelected : styles.methodText}>
-                {a.label}
-              </Text>
-            </Pressable>
+            />
           ))}
-          <Pressable
-            style={[styles.methodChip, selectedAddress === null && styles.methodChipSelected]}
-            onPress={() => setSelectedAddress(null)}
-          >
-            <Text style={selectedAddress === null ? styles.methodTextSelected : styles.methodText}>
-              Custom
-            </Text>
-          </Pressable>
+          <Chip label="Custom" selected={selectedAddress === null} onPress={() => setSelectedAddress(null)} />
         </View>
       )}
       {selectedAddress ? (
-        <Text style={styles.addressPreview}>{selectedAddress.address}</Text>
+        <Text
+          style={{
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+            borderRadius: theme.radius.md,
+            padding: theme.spacing.md,
+            color: theme.colors.text,
+          }}
+        >
+          {selectedAddress.address}
+        </Text>
       ) : (
-        <TextInput style={styles.input} value={customAddress} onChangeText={setCustomAddress} />
+        <TextField value={customAddress} onChangeText={setCustomAddress} />
       )}
 
-      <Text style={styles.label}>Payment method</Text>
-      <View style={styles.methodRow}>
+      <Text style={[theme.typography.bodyStrong, { color: theme.colors.text, marginTop: theme.spacing.sm }]}>
+        Payment method
+      </Text>
+      <View style={{ flexDirection: "row", gap: theme.spacing.sm }}>
         {METHODS.map((m) => (
-          <Pressable
-            key={m}
-            style={[styles.methodChip, method === m && styles.methodChipSelected]}
-            onPress={() => setMethod(m)}
-          >
-            <Text style={method === m ? styles.methodTextSelected : styles.methodText}>
-              {m.toUpperCase()}
-            </Text>
-          </Pressable>
+          <Chip key={m} label={m.toUpperCase()} selected={method === m} onPress={() => setMethod(m)} />
         ))}
       </View>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-
-      <Pressable
-        style={styles.button}
-        onPress={handlePlaceOrder}
-        disabled={submitting || lines.length === 0}
-      >
-        {submitting ? (
-          <ActivityIndicator color="white" />
-        ) : (
-          <Text style={styles.buttonText}>Place order</Text>
-        )}
-      </Pressable>
-    </ScrollView>
+      {error && <Text style={{ color: theme.colors.danger }}>{error}</Text>}
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  heading: { fontSize: 20, fontWeight: "700" },
-  line: { flexDirection: "row", justifyContent: "space-between" },
-  totalLine: { borderTopWidth: 1, borderTopColor: "#e2e8f0", paddingTop: 8, marginTop: 4 },
-  totalText: { fontWeight: "700" },
-  label: { fontWeight: "600", marginTop: 8 },
-  input: { borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 10, padding: 12 },
-  methodRow: { flexDirection: "row", gap: 8 },
-  methodChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#cbd5e1",
-  },
-  methodChipSelected: { backgroundColor: "#0f172a", borderColor: "#0f172a" },
-  methodText: { color: "#0f172a" },
-  methodTextSelected: { color: "white" },
-  button: {
-    backgroundColor: "#16a34a",
-    borderRadius: 10,
-    padding: 14,
-    alignItems: "center",
-    marginTop: 12,
-  },
-  buttonText: { color: "white", fontWeight: "700" },
-  error: { color: "#dc2626" },
-  addressPreview: {
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    borderRadius: 10,
-    padding: 12,
-    color: "#334155",
-  },
-});
