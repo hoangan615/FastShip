@@ -7,6 +7,7 @@ import { connectSocket, getSocket } from "@/api/ws";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button, Card, EmptyState, Screen } from "@/components/ui";
 import { useTheme } from "@/theme";
+import { showToast } from "@/stores/toastStore";
 
 export default function OpsDashboardScreen() {
   const theme = useTheme();
@@ -28,6 +29,9 @@ export default function OpsDashboardScreen() {
     try {
       await api.opsReassignOrder(orderId);
       queryClient.invalidateQueries({ queryKey: ["ops", "orders", "live"] });
+      showToast("Order reassigned");
+    } catch (e: any) {
+      showToast(e?.response?.data?.detail ?? "Could not reassign this order.", "error");
     } finally {
       setReassigningId(null);
     }

@@ -6,6 +6,7 @@ import { Image, Text, View } from "react-native";
 import * as api from "@/api/endpoints";
 import { Button, Chip, EmptyState, Screen, TextField } from "@/components/ui";
 import { useTheme } from "@/theme";
+import { showToast } from "@/stores/toastStore";
 import type { ProductStatus } from "@/types/api";
 
 const STATUSES: ProductStatus[] = ["active", "out_of_stock", "hidden"];
@@ -53,9 +54,10 @@ export default function EditProductScreen() {
         status,
       });
       queryClient.invalidateQueries({ queryKey: ["products", "mine"] });
+      showToast("Product updated");
       router.back();
-    } catch (e) {
-      setError("Could not save changes. Please try again.");
+    } catch (e: any) {
+      setError(e?.response?.data?.detail ?? "Could not save changes. Please try again.");
     } finally {
       setSaving(false);
     }

@@ -5,6 +5,7 @@ import { FlatList, Text, View } from "react-native";
 import * as api from "@/api/endpoints";
 import { Button, Card, EmptyState, IconButton, Screen, TextField } from "@/components/ui";
 import { useTheme } from "@/theme";
+import { showToast } from "@/stores/toastStore";
 import type { MerchantAdmin } from "@/types/api";
 
 export default function OpsSettingsScreen() {
@@ -39,6 +40,9 @@ export default function OpsSettingsScreen() {
         shipping_per_km_rate: Number(perKmRate),
       });
       queryClient.invalidateQueries({ queryKey: ["ops", "settings"] });
+      showToast("Shipping fee settings saved");
+    } catch (e: any) {
+      showToast(e?.response?.data?.detail ?? "Could not save shipping fee settings.", "error");
     } finally {
       setSaving(false);
     }
@@ -95,14 +99,22 @@ function MerchantCommissionRow({ merchant }: { merchant: MerchantAdmin }) {
   const queryClient = useQueryClient();
   const [value, setValue] = useState(String(Number(merchant.commission_rate) * 100));
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function save() {
     const rate = Number(value) / 100;
-    if (Number.isNaN(rate) || rate < 0 || rate > 1) return;
+    if (Number.isNaN(rate) || rate < 0 || rate > 1) {
+      setError("0-100");
+      return;
+    }
+    setError(null);
     setSaving(true);
     try {
       await api.opsUpdateMerchantCommission(merchant.id, rate);
       queryClient.invalidateQueries({ queryKey: ["ops", "merchants"] });
+      showToast(`${merchant.name} commission updated`);
+    } catch (e: any) {
+      showToast(e?.response?.data?.detail ?? "Could not update commission rate.", "error");
     } finally {
       setSaving(false);
     }
@@ -112,7 +124,15 @@ function MerchantCommissionRow({ merchant }: { merchant: MerchantAdmin }) {
     <Card style={{ flexDirection: "row", alignItems: "center", marginBottom: theme.spacing.sm, gap: theme.spacing.sm }}>
       <Text style={[theme.typography.bodyStrong, { color: theme.colors.text, flex: 1 }]}>{merchant.name}</Text>
       <View style={{ width: 64 }}>
-        <TextField keyboardType="numeric" value={value} onChangeText={setValue} />
+        <TextField
+          keyboardType="numeric"
+          value={value}
+          onChangeText={(v) => {
+            setValue(v);
+            if (error) setError(null);
+          }}
+          error={error ?? undefined}
+        />
       </View>
       <Text style={{ color: theme.colors.textMuted }}>%</Text>
       <IconButton
