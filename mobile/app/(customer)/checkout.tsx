@@ -1,18 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Text, View } from "react-native";
 
 import * as api from "@/api/endpoints";
 import { Button, Chip, Screen, TextField } from "@/components/ui";
 import { useTheme } from "@/theme";
 import { useCartStore } from "@/stores/cartStore";
+import { showToast } from "@/stores/toastStore";
 import type { PaymentMethod, SavedAddress } from "@/types/api";
 
 const METHODS: PaymentMethod[] = ["wallet", "card", "cod"];
-// demo coordinates around central HCMC — a real app would geocode a
-// manually-typed address; saved addresses already carry real coordinates.
-const CUSTOM_DROPOFF_COORDS = { lat: 10.7829, lng: 106.6997 };
+// No geocoding service is available in this demo, so a custom (non-saved)
+// address needs its own lat/lng — same manual-entry pattern used on the
+// Addresses screen — rather than silently reusing a fixed coordinate that
+// wouldn't match whatever the customer actually typed.
+const DEFAULT_CUSTOM_COORDS = { lat: "10.7829", lng: "106.6997" };
 const PICKUP = { address: "Merchant pickup point", lat: 10.7769, lng: 106.7009 };
 
 export default function CheckoutScreen() {
@@ -22,22 +25,36 @@ export default function CheckoutScreen() {
   const lines = Object.values(cart.lines);
   const [method, setMethod] = useState<PaymentMethod>("wallet");
   const [selectedAddress, setSelectedAddress] = useState<SavedAddress | null>(null);
-  const [customAddress, setCustomAddress] = useState("My place, District 1");
+  const [customAddress, setCustomAddress] = useState("");
+  const [customLat, setCustomLat] = useState(DEFAULT_CUSTOM_COORDS.lat);
+  const [customLng, setCustomLng] = useState(DEFAULT_CUSTOM_COORDS.lng);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const userPickedAddress = useRef(false);
 
   const { data: savedAddresses } = useQuery({
     queryKey: ["customers", "me", "addresses"],
     queryFn: api.listMyAddresses,
   });
 
+  // Default to the customer's first saved address instead of always
+  // landing on the "Custom" tab — most orders ship to a known place.
+  useEffect(() => {
+    if (userPickedAddress.current || selectedAddress || !savedAddresses?.length) return;
+    setSelectedAddress(savedAddresses[0]);
+  }, [savedAddresses, selectedAddress]);
+
+  const customCoordsValid =
+    customAddress.trim().length > 0 && !Number.isNaN(Number(customLat)) && !Number.isNaN(Number(customLng));
+  const addressReady = !!selectedAddress || customCoordsValid;
   const dropoff = selectedAddress
     ? { address: selectedAddress.address, lat: selectedAddress.lat, lng: selectedAddress.lng }
-    : { address: customAddress, ...CUSTOM_DROPOFF_COORDS };
+    : { address: customAddress, lat: Number(customLat), lng: Number(customLng) };
 
   const { data: quote, isLoading: quoteLoading } = useQuery({
     queryKey: ["orders", "quote", dropoff.lat, dropoff.lng],
     queryFn: () => api.quoteShippingFee(PICKUP, dropoff),
+    enabled: addressReady,
   });
 
   const subtotal = lines.reduce((sum, l) => sum + Number(l.product.price) * l.qty, 0);
@@ -45,7 +62,7 @@ export default function CheckoutScreen() {
   const grandTotal = subtotal + shippingFee;
 
   async function handlePlaceOrder() {
-    if (!cart.merchantId || lines.length === 0) return;
+    if (!cart.merchantId || lines.length === 0 || !addressReady) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -57,9 +74,10 @@ export default function CheckoutScreen() {
         payment_method: method,
       });
       cart.clear();
+      showToast("Order placed!");
       router.replace(`/order/${order.id}` as never);
-    } catch (e) {
-      setError("Could not place order. Please try again.");
+    } catch (e: any) {
+      setError(e?.response?.data?.detail ?? "Could not place order. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -73,7 +91,7 @@ export default function CheckoutScreen() {
           label={`Place order · ${grandTotal.toLocaleString()} VND`}
           onPress={handlePlaceOrder}
           loading={submitting}
-          disabled={lines.length === 0 || quoteLoading}
+          disabled={lines.length === 0 || quoteLoading || !addressReady}
         />
       }
     >
@@ -125,10 +143,20 @@ export default function CheckoutScreen() {
               key={a.id}
               label={a.label}
               selected={selectedAddress?.id === a.id}
-              onPress={() => setSelectedAddress(a)}
+              onPress={() => {
+                userPickedAddress.current = true;
+                setSelectedAddress(a);
+              }}
             />
           ))}
-          <Chip label="Custom" selected={selectedAddress === null} onPress={() => setSelectedAddress(null)} />
+          <Chip
+            label="Custom"
+            selected={selectedAddress === null}
+            onPress={() => {
+              userPickedAddress.current = true;
+              setSelectedAddress(null);
+            }}
+          />
         </View>
       )}
       {selectedAddress ? (
@@ -144,7 +172,31 @@ export default function CheckoutScreen() {
           {selectedAddress.address}
         </Text>
       ) : (
-        <TextField value={customAddress} onChangeText={setCustomAddress} />
+        <View style={{ gap: theme.spacing.sm }}>
+          <TextField placeholder="Address" value={customAddress} onChangeText={setCustomAddress} />
+          <View style={{ flexDirection: "row", gap: theme.spacing.sm }}>
+            <View style={{ flex: 1 }}>
+              <TextField
+                label="Latitude"
+                keyboardType="numeric"
+                value={customLat}
+                onChangeText={setCustomLat}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <TextField
+                label="Longitude"
+                keyboardType="numeric"
+                value={customLng}
+                onChangeText={setCustomLng}
+              />
+            </View>
+          </View>
+          <Text style={[theme.typography.caption, { color: theme.colors.textMuted }]}>
+            No map lookup in this demo — the fee is calculated from these coordinates, so adjust them if
+            they don't match the address you typed.
+          </Text>
+        </View>
       )}
 
       <Text style={[theme.typography.bodyStrong, { color: theme.colors.text, marginTop: theme.spacing.sm }]}>

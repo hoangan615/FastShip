@@ -6,3 +6,4 @@ export { Chip } from "./Chip";
 export { Screen } from "./Screen";
 export { ScreenBackground } from "./ScreenBackground";
 export { EmptyState } from "./EmptyState";
+export { ToastHost } from "./Toast";

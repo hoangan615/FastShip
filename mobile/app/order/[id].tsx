@@ -12,12 +12,14 @@ import { useOrderTracking } from "@/hooks/useOrderTracking";
 import { useAuthStore } from "@/stores/authStore";
 import { useTheme, type Theme } from "@/theme";
 import { useTrackingStore } from "@/stores/trackingStore";
+import { showToast } from "@/stores/toastStore";
 
 interface OrderAction {
   key: string;
   label: string;
   variant: "primary" | "danger";
   run: () => Promise<unknown>;
+  successMessage: string;
   confirm?: { title: string; message: string; confirmLabel: string };
 }
 
@@ -33,6 +35,7 @@ function getActionsFor(
         label: "Cancel order",
         variant: "danger",
         run: () => api.cancelOrder(orderId),
+        successMessage: "Order cancelled",
         confirm: {
           title: "Cancel order",
           message: "Are you sure you want to cancel this order?",
@@ -44,12 +47,19 @@ function getActionsFor(
 
   if (role === "shipper" && status === "assigned") {
     return [
-      { key: "pickup", label: "Mark picked up", variant: "primary", run: () => api.pickupOrder(orderId) },
+      {
+        key: "pickup",
+        label: "Mark picked up",
+        variant: "primary",
+        run: () => api.pickupOrder(orderId),
+        successMessage: "Marked as picked up",
+      },
       {
         key: "reject",
         label: "Can't take this order",
         variant: "danger",
         run: () => api.rejectAssignment(orderId, "unable to fulfill"),
+        successMessage: "Assignment rejected",
         confirm: {
           title: "Reject assignment",
           message: "You won't be able to take this order back once rejected.",
@@ -61,18 +71,31 @@ function getActionsFor(
 
   if (role === "shipper" && status === "picked_up") {
     return [
-      { key: "start", label: "Start delivery", variant: "primary", run: () => api.startDelivery(orderId) },
+      {
+        key: "start",
+        label: "Start delivery",
+        variant: "primary",
+        run: () => api.startDelivery(orderId),
+        successMessage: "Delivery started",
+      },
     ];
   }
 
   if (role === "shipper" && status === "delivering") {
     return [
-      { key: "complete", label: "Mark delivered", variant: "primary", run: () => api.completeOrder(orderId) },
+      {
+        key: "complete",
+        label: "Mark delivered",
+        variant: "primary",
+        run: () => api.completeOrder(orderId),
+        successMessage: "Marked as delivered",
+      },
       {
         key: "fail",
         label: "Report failure",
         variant: "danger",
         run: () => api.failOrder(orderId, "delivery failed"),
+        successMessage: "Failure reported",
         confirm: {
           title: "Report delivery failure",
           message: "This marks the order as failed and cannot be undone.",
@@ -103,6 +126,9 @@ export default function OrderDetailScreen() {
       await action.run();
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       refetch();
+      showToast(action.successMessage);
+    } catch (e: any) {
+      showToast(e?.response?.data?.detail ?? "Something went wrong. Please try again.", "error");
     } finally {
       setRunningKey(null);
     }
@@ -234,6 +260,9 @@ function RatingSection({ orderId }: { orderId: string }) {
     try {
       await api.rateOrder(orderId, score, undefined, merchantScore);
       queryClient.invalidateQueries({ queryKey: ["orders", orderId, "rating"] });
+      showToast("Thanks for your rating!");
+    } catch (e: any) {
+      showToast(e?.response?.data?.detail ?? "Could not submit rating. Please try again.", "error");
     } finally {
       setSubmitting(false);
     }

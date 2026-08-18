@@ -12,6 +12,7 @@ export function IconButton({
   disabled = false,
   style,
   testID,
+  accessibilityLabel,
 }: {
   name: keyof typeof Ionicons.glyphMap;
   onPress: () => void;
@@ -21,6 +22,7 @@ export function IconButton({
   disabled?: boolean;
   style?: ViewStyle;
   testID?: string;
+  accessibilityLabel: string;
 }) {
   const theme = useTheme();
   const fg = color ?? theme.colors.text;
@@ -31,6 +33,8 @@ export function IconButton({
       disabled={disabled}
       hitSlop={12}
       testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
       style={({ pressed }) => [
         {
           width: 40,

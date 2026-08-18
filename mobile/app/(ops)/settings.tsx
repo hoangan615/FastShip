@@ -121,6 +121,7 @@ function MerchantCommissionRow({ merchant }: { merchant: MerchantAdmin }) {
         disabled={saving}
         onPress={save}
         testID={`save-commission-${merchant.id}`}
+        accessibilityLabel={`Save commission rate for ${merchant.name}`}
       />
     </Card>
   );

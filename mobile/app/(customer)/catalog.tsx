@@ -1,11 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FlatList, Pressable, Text, View } from "react-native";
 
 import * as api from "@/api/endpoints";
-import { EmptyState, IconButton, Screen } from "@/components/ui";
+import { EmptyState, IconButton, Screen, TextField } from "@/components/ui";
 import { useTheme } from "@/theme";
 import { useCartStore } from "@/stores/cartStore";
 import type { Merchant, Product } from "@/types/api";
@@ -15,9 +15,17 @@ export default function CatalogScreen() {
   const router = useRouter();
   const { merchantId } = useLocalSearchParams<{ merchantId?: string }>();
   const [selectedMerchant, setSelectedMerchant] = useState<Merchant | null>(null);
+  const [merchantSearch, setMerchantSearch] = useState("");
+  const [productSearch, setProductSearch] = useState("");
   const cart = useCartStore();
 
   const merchantsQuery = useQuery({ queryKey: ["merchants"], queryFn: api.listMerchants });
+  const filteredMerchants = useMemo(() => {
+    const list = merchantsQuery.data ?? [];
+    if (!merchantSearch.trim()) return list;
+    const q = merchantSearch.trim().toLowerCase();
+    return list.filter((m) => m.name.toLowerCase().includes(q));
+  }, [merchantsQuery.data, merchantSearch]);
 
   useEffect(() => {
     if (!merchantId || selectedMerchant || !merchantsQuery.data) return;
@@ -33,6 +41,12 @@ export default function CatalogScreen() {
     queryFn: () => api.listPublicProducts(selectedMerchant!.id),
     enabled: !!selectedMerchant,
   });
+  const filteredProducts = useMemo(() => {
+    const list = productsQuery.data ?? [];
+    if (!productSearch.trim()) return list;
+    const q = productSearch.trim().toLowerCase();
+    return list.filter((p) => p.name.toLowerCase().includes(q));
+  }, [productsQuery.data, productSearch]);
 
   const cartCount = Object.values(cart.lines).reduce((sum, l) => sum + l.qty, 0);
 
@@ -42,13 +56,24 @@ export default function CatalogScreen() {
         <Text style={[theme.typography.heading, { color: theme.colors.text, marginBottom: theme.spacing.md }]}>
           Merchants
         </Text>
+        {(merchantsQuery.data?.length ?? 0) > 0 && (
+          <View style={{ marginBottom: theme.spacing.md }}>
+            <TextField placeholder="Search merchants" value={merchantSearch} onChangeText={setMerchantSearch} />
+          </View>
+        )}
         <FlatList
-          data={merchantsQuery.data ?? []}
+          data={filteredMerchants}
           keyExtractor={(m) => m.id}
           ListEmptyComponent={
             <EmptyState
               icon="storefront-outline"
-              title={merchantsQuery.isLoading ? "Loading..." : "No merchants yet"}
+              title={
+                merchantsQuery.isLoading
+                  ? "Loading..."
+                  : merchantSearch
+                    ? "No merchants match your search"
+                    : "No merchants yet"
+              }
               loading={merchantsQuery.isLoading}
             />
           }
@@ -116,21 +141,37 @@ export default function CatalogScreen() {
       }
     >
       <View style={{ flexDirection: "row", alignItems: "center", marginBottom: theme.spacing.sm }}>
-        <IconButton name="chevron-back" onPress={() => setSelectedMerchant(null)} />
+        <IconButton
+          name="chevron-back"
+          onPress={() => setSelectedMerchant(null)}
+          accessibilityLabel="Back to merchants"
+        />
         <Text style={[theme.typography.body, { color: theme.colors.primary }]}>Merchants</Text>
       </View>
       <Text style={[theme.typography.heading, { color: theme.colors.text, marginBottom: theme.spacing.md }]}>
         {selectedMerchant.name}
       </Text>
 
+      {(productsQuery.data?.length ?? 0) > 0 && (
+        <View style={{ marginBottom: theme.spacing.md }}>
+          <TextField placeholder="Search products" value={productSearch} onChangeText={setProductSearch} />
+        </View>
+      )}
+
       <FlatList
-        data={productsQuery.data ?? []}
+        data={filteredProducts}
         keyExtractor={(p) => p.id}
         renderItem={({ item }) => <ProductRow product={item} />}
         ListEmptyComponent={
           <EmptyState
             icon="fast-food-outline"
-            title={productsQuery.isLoading ? "Loading..." : "No products available"}
+            title={
+              productsQuery.isLoading
+                ? "Loading..."
+                : productSearch
+                  ? "No products match your search"
+                  : "No products available"
+            }
             loading={productsQuery.isLoading}
           />
         }
@@ -166,6 +207,7 @@ function ProductRow({ product }: { product: Product }) {
           variant="filled"
           size={16}
           onPress={() => cart.removeOne(product.id)}
+          accessibilityLabel={`Remove one ${product.name}`}
         />
         <Text style={[theme.typography.bodyStrong, { color: theme.colors.text, minWidth: 20, textAlign: "center" }]}>
           {qty}
@@ -176,6 +218,7 @@ function ProductRow({ product }: { product: Product }) {
           size={16}
           testID={`qty-add-${product.id}`}
           onPress={() => cart.addOne(product)}
+          accessibilityLabel={`Add one ${product.name}`}
         />
       </View>
     </View>

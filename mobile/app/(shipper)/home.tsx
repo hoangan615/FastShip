@@ -9,6 +9,7 @@ import * as api from "@/api/endpoints";
 import { connectSocket, getSocket } from "@/api/ws";
 import { Button, Card, EmptyState, Screen } from "@/components/ui";
 import { useTheme } from "@/theme";
+import { showToast } from "@/stores/toastStore";
 
 const PING_INTERVAL_MS = 7_000; // spec: shipper location ping every 5-10s
 
@@ -25,6 +26,7 @@ export default function ShipperHomeScreen() {
   });
   const [toggling, setToggling] = useState(false);
   const [offer, setOffer] = useState<{ order_id: string; expires_in: number } | null>(null);
+  const [secondsLeft, setSecondsLeft] = useState(0);
   const [responding, setResponding] = useState(false);
   const pingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -33,12 +35,27 @@ export default function ShipperHomeScreen() {
   useEffect(() => {
     connectSocket();
     const socket = getSocket();
-    const onOffer = (data: { order_id: string; expires_in: number }) => setOffer(data);
+    const onOffer = (data: { order_id: string; expires_in: number }) => {
+      setOffer(data);
+      setSecondsLeft(data.expires_in);
+    };
     socket.on("match.offer_received", onOffer);
     return () => {
       socket.off("match.offer_received", onOffer);
     };
   }, []);
+
+  // Live countdown so a shipper can't tap Accept on an offer that has
+  // already expired server-side — auto-dismiss the card at zero instead.
+  useEffect(() => {
+    if (!offer) return;
+    if (secondsLeft <= 0) {
+      setOffer(null);
+      return;
+    }
+    const timer = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [offer, secondsLeft]);
 
   useEffect(() => {
     if (!isOnline) {
@@ -82,12 +99,16 @@ export default function ShipperHomeScreen() {
     try {
       if (accept) {
         await api.acceptOffer(offer.order_id);
+        showToast("Delivery accepted");
       } else {
         await api.declineOffer(offer.order_id);
       }
       setOffer(null);
       queryClient.invalidateQueries({ queryKey: ["shippers", "me"] });
       queryClient.invalidateQueries({ queryKey: ["orders", "shipper", "mine"] });
+    } catch (e: any) {
+      showToast(e?.response?.data?.detail ?? "That offer is no longer available.", "error");
+      setOffer(null);
     } finally {
       setResponding(false);
     }
@@ -146,7 +167,7 @@ export default function ShipperHomeScreen() {
           <Text style={[theme.typography.subheading, { color: theme.colors.warningFg }]}>
             New delivery offer!
           </Text>
-          <Text style={{ color: theme.colors.warningFg }}>Expires in ~{offer.expires_in}s</Text>
+          <Text style={{ color: theme.colors.warningFg }}>Expires in {secondsLeft}s</Text>
           <View style={{ flexDirection: "row", gap: theme.spacing.sm, marginTop: theme.spacing.xs }}>
             <View style={{ flex: 1 }}>
               <Button

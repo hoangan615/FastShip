@@ -16,6 +16,9 @@ const ROLE_HOME: Record<string, string> = {
   ops: "/(ops)/dashboard",
 };
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD_LENGTH = 6;
+
 export default function RegisterScreen() {
   const theme = useTheme();
   const router = useRouter();
@@ -26,16 +29,37 @@ export default function RegisterScreen() {
   const [role, setRole] = useState<UserRole>("customer");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  function validate() {
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
+    const nextNameError = !trimmedName ? "Name is required" : null;
+    const nextEmailError = !trimmedEmail
+      ? "Email is required"
+      : !EMAIL_RE.test(trimmedEmail)
+        ? "Enter a valid email"
+        : null;
+    const nextPasswordError =
+      password.length < MIN_PASSWORD_LENGTH ? `Password must be at least ${MIN_PASSWORD_LENGTH} characters` : null;
+    setNameError(nextNameError);
+    setEmailError(nextEmailError);
+    setPasswordError(nextPasswordError);
+    return !nextNameError && !nextEmailError && !nextPasswordError;
+  }
 
   async function handleRegister() {
-    setLoading(true);
     setError(null);
+    if (!validate()) return;
+    setLoading(true);
     try {
       const res = await api.register({ email: email.trim(), password, role, name: name.trim() });
       setAuth(res.access_token, res.role, res.user_id);
       router.replace((ROLE_HOME[res.role] ?? "/") as never);
-    } catch (e: unknown) {
-      setError("Registration failed. Try a different email.");
+    } catch (e: any) {
+      setError(e?.response?.data?.detail ?? "Registration failed. Try a different email.");
     } finally {
       setLoading(false);
     }
@@ -58,15 +82,36 @@ export default function RegisterScreen() {
             Create account
           </Text>
 
-          <TextField placeholder="Name" value={name} onChangeText={setName} />
+          <TextField
+            placeholder="Name"
+            value={name}
+            onChangeText={(v) => {
+              setName(v);
+              if (nameError) setNameError(null);
+            }}
+            error={nameError ?? undefined}
+          />
           <TextField
             placeholder="Email"
             autoCapitalize="none"
             keyboardType="email-address"
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(v) => {
+              setEmail(v);
+              if (emailError) setEmailError(null);
+            }}
+            error={emailError ?? undefined}
           />
-          <TextField placeholder="Password" secureTextEntry value={password} onChangeText={setPassword} />
+          <TextField
+            placeholder="Password"
+            secureTextEntry
+            value={password}
+            onChangeText={(v) => {
+              setPassword(v);
+              if (passwordError) setPasswordError(null);
+            }}
+            error={passwordError ?? undefined}
+          />
 
           <Text
             style={[theme.typography.bodyStrong, { color: theme.colors.text, marginTop: theme.spacing.xs }]}
